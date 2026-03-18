@@ -1,0 +1,745 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Core Company Model
+model Company {
+  id          String   @id @default(uuid()) // Company GUID
+  name        String
+  slug        String   @unique
+  logo        String?
+  primaryColor String?
+  secondaryColor String?
+  address     String?
+  phone       String?
+  email       String?
+  website     String?
+  timezone    String   @default("UTC")
+  currency    String   @default("ZAR")
+  latitude    Decimal? @db.Decimal(10, 8)
+  longitude   Decimal? @db.Decimal(11, 8)
+  locationRadius Int?  @default(100) // meters for validation
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tables      Table[]
+  menuItems   MenuItem[]
+  orders      Order[]
+  users       User[]
+  customerSessions CustomerSession[]
+  customerOrders   CustomerOrder[]
+  waiterCalls      WaiterCall[]
+  payments         Payment[]
+  inventoryItems   InventoryItem[]
+  suppliers        Supplier[]
+  inventoryMovements InventoryMovement[]
+  inventoryAlerts  InventoryAlert[]
+  modifierGroups   ModifierGroup[]
+  specials         Special[]
+
+  @@map("companies")
+}
+
+enum SelectionType {
+  SINGLE
+  MULTIPLE
+}
+
+model User {
+  id        String    @id @default(cuid())
+  companyId String?   // Nullable for SYSTEM_ADMIN
+  email     String    @unique
+  name      String?
+  phone     String?
+  password  String?   // Hashed password for full accounts
+  pin       String?   // Hashed 4-6 digit PIN for quick access
+  role      UserRole  @default(CUSTOMER)
+  isActive  Boolean   @default(true)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  company   Company? @relation(fields: [companyId], references: [id])
+  orders    Order[]
+  waiterTables Table[] @relation("WaiterTables")
+
+  @@index([companyId, role])
+  @@map("users")
+}
+
+model Table {
+  id          String      @id @default(cuid())
+  companyId   String
+  number      Int
+  qrCode      String      @unique
+  status      TableStatus @default(AVAILABLE)
+  waiterId    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  company     Company     @relation(fields: [companyId], references: [id])
+  waiter      User?       @relation("WaiterTables", fields: [waiterId], references: [id])
+  orders      Order[]
+  customerSessions  CustomerSession[]
+  customerOrders    CustomerOrder[]
+  waiterCalls       WaiterCall[]
+  tableSession      TableSession?
+
+  @@unique([companyId, number])
+  @@map("tables")
+}
+
+model MenuItem {
+  id            String   @id @default(cuid())
+  companyId     String
+  name          String
+  description   String?
+  price         Decimal  @db.Decimal(10, 2)
+  category      String
+  imageUrl      String?
+  isAvailable   Boolean  @default(true)
+  preparationTime Int?   // minutes
+  isShareable   Boolean  @default(false)  // e.g. Nachos, Pizza - can "Join & Split"
+  maxClaimants  Int?     // max people who can claim (default 4); null = unlimited
+  isBundle      Boolean  @default(false) // Special/bundle: customer picks items per slot
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  company           Company                 @relation(fields: [companyId], references: [id])
+  orderItems        OrderItem[]
+  customerOrderItems CustomerOrderItem[]
+  modifierGroups    MenuItemModifierGroup[]
+  bundleSlots       BundleSlot[]
+  bundleSlotOptions BundleSlotOption[]
+  specialItems      SpecialItem[]
+
+  @@map("menu_items")
+}
+
+model ModifierGroup {
+  id             String        @id @default(cuid())
+  companyId      String
+  name           String
+  description    String?
+  selectionType  SelectionType @default(SINGLE)
+  isRequired     Boolean       @default(false)
+  minSelections  Int           @default(0)
+  maxSelections Int?
+  sortOrder      Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  company    Company                 @relation(fields: [companyId], references: [id])
+  options    ModifierOption[]
+  menuItems  MenuItemModifierGroup[]
+
+  @@index([companyId])
+  @@map("modifier_groups")
+}
+
+model ModifierOption {
+  id              String   @id @default(cuid())
+  modifierGroupId String
+  name            String
+  description     String?
+  priceAdjustment Decimal  @db.Decimal(10, 2) @default(0)
+  isDefault       Boolean  @default(false)
+  isAvailable     Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  imageUrl        String?  // For visual slider (e.g. steak doneness image)
+  visualType      String?  // "SLIDER" | "TILE" - render as slider or tiles
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  group  ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+  orderItemModifiers OrderItemModifier[]
+
+  @@index([modifierGroupId])
+  @@map("modifier_options")
+}
+
+model MenuItemModifierGroup {
+  id              String   @id @default(cuid())
+  menuItemId      String
+  modifierGroupId String
+  sortOrder       Int      @default(0)
+  overrideRequired Boolean?
+  overrideMin     Int?
+  overrideMax     Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  menuItem  MenuItem     @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, modifierGroupId])
+  @@index([menuItemId])
+  @@index([modifierGroupId])
+  @@map("menu_item_modifier_groups")
+}
+
+model BundleSlot {
+  id          String   @id @default(cuid())
+  menuItemId  String   // parent bundle menu item
+  name        String
+  description String?
+  isRequired  Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  menuItem       MenuItem           @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  allowedItems   BundleSlotOption[]
+  bundleChoices  OrderItemBundleChoice[]
+
+  @@index([menuItemId])
+  @@map("bundle_slots")
+}
+
+model BundleSlotOption {
+  id            String   @id @default(cuid())
+  bundleSlotId  String
+  menuItemId    String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bundleSlot BundleSlot @relation(fields: [bundleSlotId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([bundleSlotId, menuItemId])
+  @@index([bundleSlotId])
+  @@index([menuItemId])
+  @@map("bundle_slot_options")
+}
+
+enum SpecialType {
+  TIME_BASED    // Happy Hour: 2-for-1 cocktails (4 PM - 6 PM)
+  CONDITIONAL   // Upsell: Add Merlot for R40 with any Main
+  MULTI_SLOT    // Family Platter: Choose 3 Meats + 2 Sides
+  AUTO_APPENDED // Corkage: R50 per head for live music nights
+}
+
+model Special {
+  id              String      @id @default(cuid())
+  companyId       String
+  name            String
+  description     String?
+  specialType     SpecialType
+  isActive        Boolean     @default(true)
+
+  // Time-based fields
+  startTime       String?     // "16:00" (HH:mm format)
+  endTime         String?     // "18:00"
+  daysOfWeek      Int[]       // [1,2,3,4,5] = Mon-Fri (0=Sunday)
+
+  // Conditional fields
+  triggerCategory String?     // "Main" - only show if item in this category exists in cart
+  triggerItemIds  String[]    // Specific menu item IDs that trigger this special
+
+  // Multi-slot fields
+  requiredSlots   Json?       // { "meats": 3, "sides": 2 }
+  slotDefinitions Json?        // Array of slot configs
+
+  // Auto-appended fields
+  chargePerUnit   Decimal?    @db.Decimal(10, 2)
+  unitType        String?     // "guest", "table", "order"
+
+  // Pricing
+  discountPercent Decimal?    @db.Decimal(5, 2)
+  fixedPrice      Decimal?    @db.Decimal(10, 2)
+  bundlePrice     Decimal?    @db.Decimal(10, 2)  // For multi-slot bundles
+
+  ruleDefinition  Json?       // Visual rule builder graph
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  specialItems SpecialItem[]
+
+  @@index([companyId, isActive])
+  @@index([specialType])
+  @@map("specials")
+}
+
+model SpecialItem {
+  id          String   @id @default(cuid())
+  specialId   String
+  menuItemId  String
+  isRequired  Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  special   Special   @relation(fields: [specialId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([specialId, menuItemId])
+  @@index([specialId])
+  @@index([menuItemId])
+  @@map("special_items")
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  companyId   String
+  tableId     String
+  customerId  String?
+  status      OrderStatus @default(PENDING)
+  total       Decimal     @db.Decimal(10, 2)
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  company     Company     @relation(fields: [companyId], references: [id])
+  table       Table       @relation(fields: [tableId], references: [id])
+  customer    User?       @relation(fields: [customerId], references: [id])
+  items       OrderItem[]
+  payments    Payment[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  menuItemId String
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("order_items")
+}
+
+enum UserRole {
+  CUSTOMER
+  WAITER
+  KITCHEN_STAFF
+  BAR_STAFF
+  MANAGER
+  ADMIN
+  SYSTEM_ADMIN
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+// Customer PWA Models
+model CustomerSession {
+  id                  String    @id @default(cuid())
+  companyId           String
+  tableId             String
+  customerName        String
+  phoneNumber         String?
+  dietaryPreferences  String[]
+  allergies           String[]
+  sessionStart        DateTime  @default(now())
+  sessionEnd          DateTime?
+  isActive            Boolean   @default(true)
+  lastActivity        DateTime  @default(now())
+  scanLocation        Json?     // GPS coordinates from QR scan
+  expectedLocation    Json?     // Restaurant location for validation
+  billPaidBy          String?   // Waiter who marked bill as paid
+  billPaidAt          DateTime?
+  expiryReason        String?   // INACTIVITY, BILL_PAID, NEW_SCAN
+  
+  // Relations
+  company             Company  @relation(fields: [companyId], references: [id])
+  table               Table    @relation(fields: [tableId], references: [id])
+  orders              CustomerOrder[]
+  participants        Participant[]
+  waiterCalls         WaiterCall[]
+  paymentSplits       PaymentSplit[]
+  
+  @@index([companyId, isActive])
+  @@index([phoneNumber, isActive])
+  @@index([tableId])
+  @@index([tableId, isActive])   // High-performance scan-check: one active session per table
+  @@map("customer_sessions")
+}
+
+// One row per person at the table (creator + joiners). Enables "Join table" and seat grouping.
+model Participant {
+  id                  String    @id @default(cuid())
+  customerSessionId   String
+  displayName         String    // "Sarah" or "Blue Bear"
+  isCreator           Boolean   @default(false)
+  phoneNumber         String?   // For idempotent re-join (same phone = same participant)
+  deviceId            String?   // For idempotent re-join (same device = same participant)
+  createdAt           DateTime  @default(now())
+  
+  customerSession     CustomerSession @relation(fields: [customerSessionId], references: [id], onDelete: Cascade)
+  orders              CustomerOrder[]
+  claims              ItemClaim[]
+  paymentSplits       PaymentSplit[]
+  
+  @@index([customerSessionId])
+  @@index([customerSessionId, phoneNumber])
+  @@index([customerSessionId, deviceId])
+  @@map("participants")
+}
+
+model CustomerOrder {
+  id                    String   @id @default(cuid())
+  companyId             String
+  customerSessionId     String
+  participantId         String?  // Who placed this order (for seat grouping). Nullable for backward compat.
+  tableId               String
+  status                String   @default("PENDING")
+  subtotal              Decimal  @db.Decimal(10, 2)
+  serviceFee            Decimal  @db.Decimal(10, 2) @default(0)
+  serviceFeePercentage  Decimal  @db.Decimal(5, 2) @default(0)
+  total                 Decimal  @db.Decimal(10, 2)
+  paymentStatus         String   @default("PENDING")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relations
+  company               Company  @relation(fields: [companyId], references: [id])
+  customerSession       CustomerSession @relation(fields: [customerSessionId], references: [id])
+  participant           Participant?    @relation(fields: [participantId], references: [id])
+  table                 Table           @relation(fields: [tableId], references: [id])
+  items                 CustomerOrderItem[]
+  appliedSpecials       AppliedOrderSpecial[]
+  payments              Payment[]
+
+  @@index([companyId])
+  @@index([customerSessionId])
+  @@index([participantId])
+  @@index([tableId])
+  @@index([status])
+  @@map("customer_orders")
+}
+
+model AppliedOrderSpecial {
+  id              String   @id @default(cuid())
+  customerOrderId String
+  specialId       String
+  name            String
+  price           Decimal  @db.Decimal(10, 2)
+  quantity        Int      @default(1)
+  createdAt       DateTime @default(now())
+
+  customerOrder CustomerOrder @relation(fields: [customerOrderId], references: [id], onDelete: Cascade)
+
+  @@index([customerOrderId])
+  @@map("applied_order_specials")
+}
+
+model CustomerOrderItem {
+  id                  String   @id @default(cuid())
+  customerOrderId     String
+  menuItemId          String
+  quantity            Int
+  specialInstructions String?
+  price               Decimal  @db.Decimal(10, 2)
+  status              String   @default("PENDING")
+  isShareable         Boolean  @default(false)  // broadcast "Join & Split" in table feed
+  maxClaimants        Int      @default(4)     // max participants (basis-points split)
+  createdAt           DateTime @default(now())
+  
+  // Relations
+  customerOrder   CustomerOrder         @relation(fields: [customerOrderId], references: [id], onDelete: Cascade)
+  menuItem        MenuItem              @relation(fields: [menuItemId], references: [id])
+  claims          ItemClaim[]
+  modifiers       OrderItemModifier[]
+  bundleChoices   OrderItemBundleChoice[]
+  
+  @@index([customerOrderId])
+  @@index([menuItemId])
+  @@map("customer_order_items")
+}
+
+model OrderItemModifier {
+  id                    String   @id @default(cuid())
+  customerOrderItemId   String
+  modifierOptionId      String
+  modifierGroupName     String   // denormalized for ticket display
+  optionName            String   // denormalized
+  priceAdjustment       Decimal  @db.Decimal(10, 2)
+  bundleChoiceId       String?  // when modifier applies to a bundle slot choice
+  createdAt             DateTime @default(now())
+  
+  customerOrderItem CustomerOrderItem   @relation(fields: [customerOrderItemId], references: [id], onDelete: Cascade)
+  modifierOption    ModifierOption      @relation(fields: [modifierOptionId], references: [id], onDelete: Cascade)
+  bundleChoice      OrderItemBundleChoice? @relation(fields: [bundleChoiceId], references: [id], onDelete: SetNull)
+  
+  @@index([customerOrderItemId])
+  @@index([modifierOptionId])
+  @@index([bundleChoiceId])
+  @@map("order_item_modifiers")
+}
+
+model OrderItemBundleChoice {
+  id                  String   @id @default(cuid())
+  customerOrderItemId String
+  bundleSlotId        String
+  chosenMenuItemId    String
+  chosenItemName      String   // denormalized for ticket
+  createdAt           DateTime @default(now())
+  
+  customerOrderItem CustomerOrderItem @relation(fields: [customerOrderItemId], references: [id], onDelete: Cascade)
+  bundleSlot        BundleSlot         @relation(fields: [bundleSlotId], references: [id], onDelete: Cascade)
+  modifiers         OrderItemModifier[]
+  
+  @@index([customerOrderItemId])
+  @@index([bundleSlotId])
+  @@map("order_item_bundle_choices")
+}
+
+// Percentage ownership of a shared item (e.g. 50% Sarah, 50% John). percentage in basis points (5000 = 50.00%).
+model ItemClaim {
+  id            String   @id @default(cuid())
+  participantId String
+  orderItemId   String
+  percentage    Int      // 0..10000 (basis points)
+  isPaid        Boolean  @default(false) // true when a payment has settled this participant's share
+  createdAt     DateTime @default(now())
+  
+  participant   Participant       @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  orderItem     CustomerOrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  
+  @@unique([participantId, orderItemId])
+  @@index([orderItemId])
+  @@index([participantId])
+  @@map("item_claims")
+}
+
+model WaiterCall {
+  id                  String   @id @default(cuid())
+  companyId           String
+  tableId             String
+  customerSessionId   String
+  callType            String
+  message             String?
+  status              String   @default("PENDING")
+  createdAt           DateTime @default(now())
+  acknowledgedAt      DateTime?
+  acknowledgedBy      String?
+  resolvedAt          DateTime?
+  
+  // Relations
+  company             Company  @relation(fields: [companyId], references: [id])
+  table               Table           @relation(fields: [tableId], references: [id])
+  customerSession     CustomerSession @relation(fields: [customerSessionId], references: [id])
+  
+  @@index([companyId])
+  @@index([tableId])
+  @@index([status])
+  @@map("waiter_calls")
+}
+
+model TableSession {
+  id            String   @id @default(cuid())
+  tableId       String   @unique
+  sessionStart  DateTime @default(now())
+  lastActivity  DateTime @default(now())
+  tableStatus   String   @default("ACTIVE")
+  totalRevenue  Decimal  @db.Decimal(10, 2) @default(0)
+  
+  // Relations
+  table         Table    @relation(fields: [tableId], references: [id])
+  
+  @@index([tableId])
+  @@map("table_sessions")
+}
+
+model Payment {
+  id                String         @id @default(cuid())
+  companyId         String
+  orderId           String?
+  customerOrderId   String?
+  provider          PaymentProvider
+  providerPaymentId String?
+  amount            Decimal        @db.Decimal(10, 2)
+  currency          String         @default("ZAR")
+  status            PaymentStatus  @default(PENDING)
+  paymentMethod     String?
+  billReference     String?
+  metadata          Json?
+  description       String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  company           Company        @relation(fields: [companyId], references: [id])
+  order             Order?         @relation(fields: [orderId], references: [id])
+  customerOrder     CustomerOrder? @relation(fields: [customerOrderId], references: [id])
+  splits            PaymentSplit[]
+
+  @@index([companyId])
+  @@index([orderId])
+  @@index([customerOrderId])
+  @@map("payments")
+}
+
+model PaymentSplit {
+  id                String        @id @default(cuid())
+  paymentId         String
+  customerSessionId String?
+  participantId     String?
+  payerName         String?
+  amount            Decimal       @db.Decimal(10, 2)
+  status            PaymentStatus @default(PENDING)
+  email             String?
+  phoneNumber       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  payment           Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  customerSession   CustomerSession? @relation(fields: [customerSessionId], references: [id])
+  participant       Participant?  @relation(fields: [participantId], references: [id])
+
+  @@index([paymentId])
+  @@index([customerSessionId])
+  @@index([participantId])
+  @@map("payment_splits")
+}
+
+model Supplier {
+  id          String    @id @default(cuid())
+  companyId   String
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company   @relation(fields: [companyId], references: [id])
+  items       InventoryItem[]
+
+  @@index([companyId])
+  @@map("suppliers")
+}
+
+model InventoryItem {
+  id               String   @id @default(cuid())
+  companyId        String
+  supplierId       String?
+  name             String
+  sku              String?  @unique
+  category         String?
+  unit             String   @default("unit")
+  costPrice        Decimal? @db.Decimal(10, 2)
+  sellingPrice     Decimal? @db.Decimal(10, 2)
+  currentStock     Decimal  @db.Decimal(12, 3) @default(0)
+  reorderQuantity  Decimal? @db.Decimal(12, 3)
+  minStockLevel    Decimal  @db.Decimal(12, 3) @default(0)
+  maxStockLevel    Decimal? @db.Decimal(12, 3)
+  isTracked        Boolean  @default(true)
+  lastStockedAt    DateTime?
+  description      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  company          Company  @relation(fields: [companyId], references: [id])
+  supplier         Supplier? @relation(fields: [supplierId], references: [id])
+  movements        InventoryMovement[]
+  alerts           InventoryAlert[]
+
+  @@index([companyId])
+  @@index([supplierId])
+  @@map("inventory_items")
+}
+
+model InventoryMovement {
+  id              String                  @id @default(cuid())
+  companyId       String
+  inventoryItemId String
+  quantity        Decimal                 @db.Decimal(12, 3)
+  movementType    InventoryMovementType
+  reference       String?
+  unitCost        Decimal?                @db.Decimal(10, 2)
+  performedBy     String?
+  notes           String?
+  createdAt       DateTime                @default(now())
+
+  company         Company                @relation(fields: [companyId], references: [id])
+  inventoryItem   InventoryItem          @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([companyId])
+  @@index([inventoryItemId])
+  @@map("inventory_movements")
+}
+
+model InventoryAlert {
+  id              String              @id @default(cuid())
+  inventoryItemId String
+  companyId       String
+  alertType       InventoryAlertType
+  message         String
+  resolved        Boolean             @default(false)
+  resolvedAt      DateTime?
+  createdAt       DateTime            @default(now())
+
+  item            InventoryItem       @relation(fields: [inventoryItemId], references: [id])
+  company         Company             @relation(fields: [companyId], references: [id])
+
+  @@index([inventoryItemId])
+  @@index([companyId])
+  @@map("inventory_alerts")
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYFAST
+  MANUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  PARTIALLY_PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum InventoryMovementType {
+  STOCK_IN
+  STOCK_OUT
+  ADJUSTMENT
+  RETURN
+}
+
+enum InventoryAlertType {
+  LOW_STOCK
+  OVERSTOCK
+  EXPIRING
+  CUSTOM
+}

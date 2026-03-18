@@ -1,0 +1,30 @@
+button,
+a,
+[role='button'] {
+  transition: color 200ms ease, background-color 200ms ease, border-color 200ms ease,
+    box-shadow 200ms ease, transform 150ms ease;
+}
+
+.dc-hover-lift {
+  transition: transform 150ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.dc-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.dc-hover-glow:hover {
+  box-shadow: var(--shadow-glow);
+  border-color: var(--accent-border);
+}
+
+.dc-press:active {
+  transform: scale(0.98);
+}
+
+.dc-focus-ring:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+

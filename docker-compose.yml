@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14
+    container_name: restaurant-postgres
+    environment:
+      POSTGRES_DB: restaurant_app
+      POSTGRES_USER: restaurant_user
+      POSTGRES_PASSWORD: restaurant_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - restaurant-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: restaurant-backend
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=restaurant_app
+      - DB_USER=restaurant_user
+      - DB_PASSWORD=restaurant_password
+      - JWT_SECRET=your-production-jwt-secret
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    networks:
+      - restaurant-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: restaurant-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - restaurant-network
+
+volumes:
+  postgres_data:
+
+networks:
+  restaurant-network:
+    driver: bridge

@@ -1,0 +1,1168 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { RestaurantWebSocketGateway } from '../websocket/websocket.gateway';
+
+@Injectable()
+export class OrdersService {
+  constructor(
+    private prisma: PrismaService,
+    private webSocketGateway: RestaurantWebSocketGateway
+  ) {}
+
+  async getAllOrders(companyId?: string) {
+    const whereClause: any = companyId ? { companyId } : {};
+    
+    // Fetch regular waiter orders
+    const regularOrders = await this.prisma.order.findMany({
+      where: whereClause,
+      include: {
+        table: true,
+        items: {
+          include: {
+            menuItem: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Fetch customer PWA orders (include participant + item claims + modifiers + bundle choices)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const customerOrderInclude: any = {
+      table: true,
+      customerSession: true,
+      participant: { select: { id: true, displayName: true } },
+      items: {
+        include: {
+          menuItem: true,
+          claims: { include: { participant: { select: { id: true, displayName: true } } } },
+          modifiers: true,
+          bundleChoices: { include: { bundleSlot: true } },
+        },
+      },
+    };
+    const customerOrders = await this.prisma.customerOrder.findMany({
+      where: whereClause,
+      include: customerOrderInclude,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    type CustomerOrderWithRelations = {
+      id: string;
+      tableId: string;
+      customerSessionId: string;
+      participantId: string | null;
+      status: string;
+      total: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+      customerSession: { customerName?: string } | null;
+      participant: { id: string; displayName: string } | null;
+      table: unknown;
+      items: Array<{
+        id: string;
+        menuItemId: string;
+        quantity: number;
+        price: unknown;
+        specialInstructions: string | null;
+        status: string;
+        createdAt: Date;
+        menuItem: unknown;
+        isShareable: boolean;
+        claims?: Array<{ participantId: string; percentage: number; participant?: { displayName: string } }>;
+        modifiers?: Array<{ modifierGroupName: string; optionName: string; priceAdjustment: unknown }>;
+        bundleChoices?: Array<{ chosenItemName: string; bundleSlot?: { name: string } }>;
+      }>;
+    };
+
+    function buildFormattedSummary(item: CustomerOrderWithRelations['items'][0]): string {
+      const parts: string[] = [];
+      if (item.modifiers?.length) {
+        parts.push(item.modifiers.map((m) => m.optionName).join(', '));
+      }
+      if (item.bundleChoices?.length) {
+        item.bundleChoices.forEach((bc) => {
+          const slotName = bc.bundleSlot?.name ?? 'Choice';
+          parts.push(`${slotName}: ${bc.chosenItemName}`);
+        });
+      }
+      return parts.join(' · ') || '';
+    }
+    const customerOrdersTyped = customerOrders as unknown as CustomerOrderWithRelations[];
+
+    // Transform customer orders; include claims on items for Waiter "shared (25%)" badge
+    const transformedCustomerOrders = customerOrdersTyped.map((order: CustomerOrderWithRelations) => ({
+      id: order.id,
+      tableId: order.tableId,
+      customerId: order.customerSessionId,
+      customerSessionId: order.customerSessionId,
+      customerName: order.customerSession?.customerName || 'Customer',
+      participantId: order.participantId ?? null,
+      participantDisplayName: order.participant?.displayName ?? order.customerSession?.customerName ?? 'Guest',
+      status: order.status,
+      total: order.total,
+      notes: `Customer Order - ${order.customerSession?.customerName || 'Guest'}`,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      table: order.table,
+      items: order.items.map((item) => ({
+        id: item.id,
+        orderId: order.id,
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+        price: item.price,
+        notes: item.specialInstructions,
+        status: item.status,
+        createdAt: item.createdAt,
+        menuItem: item.menuItem,
+        isShareable: item.isShareable ?? false,
+        claims: item.claims?.map((c: any) => ({
+          participantId: c.participantId,
+          percentage: c.percentage,
+          displayName: c.participant?.displayName ?? 'Guest',
+        })) ?? [],
+        modifiers: item.modifiers?.map((m: any) => ({
+          groupName: m.modifierGroupName,
+          optionName: m.optionName,
+          priceAdjustment: m.priceAdjustment,
+        })) ?? [],
+        bundleChoices: item.bundleChoices?.map((bc: any) => ({
+          slotName: bc.bundleSlot?.name ?? '',
+          chosenItemName: bc.chosenItemName,
+        })) ?? [],
+        formattedSummary: buildFormattedSummary(item),
+      })),
+      isCustomerOrder: true,
+    }));
+
+    // Combine and sort by creation date
+    const allOrders = [...regularOrders, ...transformedCustomerOrders].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    return allOrders;
+  }
+
+  async getOrder(id: string) {
+    return this.prisma.order.findUnique({
+      where: { id },
+      include: { items: { include: { menuItem: true } } },
+    });
+  }
+
+  async createOrder(createDto: {
+    tableId: string;
+    companyId?: string;
+    customerId?: string;
+    items: Array<{
+      menuItemId: string;
+      quantity: number;
+      notes?: string;
+    }>;
+    notes?: string;
+  }) {
+    // Resolve companyId from table if not provided (required for Order model)
+    let companyId = createDto.companyId;
+    if (!companyId) {
+      const table = await this.prisma.table.findUnique({
+        where: { id: createDto.tableId },
+        select: { companyId: true },
+      });
+      companyId = table?.companyId ?? undefined;
+    }
+    if (!companyId) {
+      throw new Error('Order must have companyId (provide it or use a table that has companyId)');
+    }
+
+    const total = Math.round(createDto.items.reduce((sum, item) => sum + (item.quantity * 10), 0) * 100) / 100;
+
+    const order = await this.prisma.order.create({
+      data: {
+        companyId,
+        tableId: createDto.tableId,
+        customerId: createDto.customerId,
+        total,
+        status: 'PENDING',
+        notes: createDto.notes,
+        items: {
+          create: createDto.items.map((item) => ({
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            notes: item.notes,
+            price: 10,
+          })),
+        },
+      },
+      include: { items: { include: { menuItem: true } } },
+    });
+
+    // Emit WebSocket event for new order
+    this.webSocketGateway.broadcastOrderUpdate(order.id, order.status, order.tableId);
+    
+    // Categorize items and emit to appropriate rooms
+    const { barItems, kitchenItems } = this.categorizeOrderItems(order.items);
+    
+    console.log('🔍 Order Creation Debug:', {
+      orderId: order.id,
+      tableId: order.tableId,
+      totalItems: order.items.length,
+      barItems: barItems.length,
+      kitchenItems: kitchenItems.length,
+      barItemDetails: barItems.map(item => ({
+        id: item.menuItemId,
+        name: item.menuItem?.name || 'Unknown',
+        category: item.menuItem?.category || 'No Category'
+      })),
+      kitchenItemDetails: kitchenItems.map(item => ({
+        id: item.menuItemId,
+        name: item.menuItem?.name || 'Unknown', 
+        category: item.menuItem?.category || 'No Category'
+      }))
+    });
+    
+    // Emit specific event for order creation
+    this.webSocketGateway.server.emit('order_created', {
+      order,
+      tableId: order.tableId,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Route drinks to bar
+    if (barItems.length > 0) {
+      console.log('🍹 Routing drinks to bar:', {
+        orderId: order.id,
+        tableId: order.tableId,
+        companyId: order.companyId,
+        drinkCount: barItems.length,
+        drinkNames: barItems.map(item => item.menuItem?.name || 'Unknown')
+      });
+      
+      const barOrder = {
+        ...order,
+        items: barItems,
+        hasDrinks: true,
+        kitchenItems: !!kitchenItems.find(item => kitchenItems.length > 0)
+      };
+      
+      // Emit to company-specific bar room
+      this.webSocketGateway.emitToCompany(order.companyId, 'bar', 'order_created_bar', {
+        order: barOrder,
+        tableId: order.tableId,
+        timestamp: new Date().toISOString(),
+        drinkItems: barItems.length
+      });
+      
+      console.log('✅ Bar event emitted to company bar room');
+    } else {
+      console.log('❌ No drinks found - not routing to bar');
+    }
+
+    // Route food to kitchen
+    if (kitchenItems.length > 0) {
+      console.log('🍽️ Routing food to kitchen:', {
+        orderId: order.id,
+        tableId: order.tableId,
+        companyId: order.companyId,
+        foodCount: kitchenItems.length,
+        foodNames: kitchenItems.map(item => item.menuItem?.name || 'Unknown')
+      });
+      
+      const kitchenOrder = {
+        ...order,
+        items: kitchenItems,
+        hasFood: true,
+        barItems: !!barItems.find(item => barItems.length > 0)
+      };
+      
+      // Emit to company-specific kitchen room
+      this.webSocketGateway.emitToCompany(order.companyId, 'kitchen', 'order_created_kitchen', {
+        order: kitchenOrder,
+        tableId: order.tableId,
+        timestamp: new Date().toISOString(),
+        foodItems: kitchenItems.length
+      });
+      
+      console.log('✅ Kitchen event emitted to company kitchen room');
+    } else {
+      console.log('❌ No food found - not routing to kitchen');
+    }
+
+    return order;
+  }
+
+  async updateOrderStatus(id: string, status: string) {
+    const existingOrder = await this.prisma.order.findUnique({
+      where: { id },
+      include: { items: { include: { menuItem: true } } },
+    });
+
+    if (existingOrder) {
+      const order = await this.prisma.order.update({
+        where: { id },
+        data: { status: status as import('@prisma/client').OrderStatus },
+      });
+      this.webSocketGateway.broadcastOrderUpdate(order.id, order.status, order.tableId);
+      return order;
+    }
+
+    // Handle CustomerOrder (from PWA) when kitchen/bar cancels
+    const customerOrder = await this.prisma.customerOrder.findUnique({
+      where: { id },
+      include: { items: true, customerSession: true },
+    });
+    if (!customerOrder) {
+      throw new Error('Order not found');
+    }
+
+    if (status.toUpperCase() === 'CANCELLED') {
+      await this.prisma.customerOrder.update({
+        where: { id },
+        data: { status: 'CANCELLED' },
+      });
+      for (const item of customerOrder.items) {
+        await this.prisma.customerOrderItem.update({
+          where: { id: item.id },
+          data: { status: 'CANCELLED' },
+        });
+      }
+    }
+
+    this.webSocketGateway.server
+      .to(`customer-${customerOrder.customerSessionId}`)
+      .emit('order_status_updated', {
+        orderId: id,
+        status: status.toUpperCase(),
+        timestamp: new Date(),
+      });
+
+    return this.prisma.customerOrder.findUnique({
+      where: { id },
+      include: { items: { include: { menuItem: true } }, table: true, customerSession: true },
+    }) as Promise<any>;
+  }
+
+  // New method for kitchen-specific status updates (food items only)
+  async updateKitchenOrderStatus(id: string, status: string) {
+    const existingOrder = await this.prisma.order.findUnique({
+      where: { id },
+      include: { items: { include: { menuItem: true } } },
+    });
+    if (!existingOrder) {
+      const customerOrder = await this.prisma.customerOrder.findUnique({ where: { id } });
+      if (customerOrder) {
+        return this.updateCustomerOrderKitchenStatus(id, status);
+      }
+      throw new Error('Order not found');
+    }
+
+    const { kitchenItems } = this.categorizeOrderItems(existingOrder.items);
+    const kitchenStatus = this.calculateCategoryStatus(kitchenItems.map((item: any) => item.status || 'NEW'));
+
+    const order = await this.prisma.order.update({
+      where: { id },
+      data: {},
+    });
+
+    // Emit WebSocket events to company-specific kitchen room
+    console.log('🔧 Emitting kitchen status change for company:', existingOrder.companyId);
+    
+    this.webSocketGateway.emitToCompany(existingOrder.companyId, 'kitchen', 'order_status_changed', {
+      orderId: order.id,
+      status: kitchenStatus, // Kitchen-specific status
+      tableId: order.tableId,
+      timestamp: new Date().toISOString(),
+      department: 'kitchen'
+    });
+
+    // Notify waiters so waiter dashboards refresh
+    this.webSocketGateway.emitToCompany(existingOrder.companyId, 'waiters', 'order_status_changed', {
+      orderId: order.id,
+      status: kitchenStatus,
+      tableId: order.tableId,
+      timestamp: new Date().toISOString(),
+      department: 'kitchen',
+    });
+    
+    // Also emit to admin room
+    this.webSocketGateway.emitToCompany(existingOrder.companyId, 'admin', 'order_status_changed', {
+      orderId: order.id,
+      status: order.status, // Original overall status for admin view
+      tableId: order.tableId,
+      timestamp: new Date().toISOString(),
+      department: 'kitchen'
+    });
+
+    return order;
+  }
+
+
+  // New method for bar-specific status updates (drink items only)  
+  async updateBarOrderStatus(id: string, status: string) {
+    const existingOrder = await this.prisma.order.findUnique({
+      where: { id },
+      include: { items: { include: { menuItem: true } } },
+    });
+    if (!existingOrder) {
+      const customerOrder = await this.prisma.customerOrder.findUnique({ where: { id } });
+      if (customerOrder) {
+        return this.updateCustomerOrderBarStatus(id, status);
+      }
+      throw new Error('Order not found');
+    }
+
+    const { barItems } = this.categorizeOrderItems(existingOrder.items);
+    
+    console.log('🔧 Bar Update:', { 
+      orderId: id, 
+      newStatus: status, 
+      barItems: barItems.length,
+      totalItems: existingOrder.items.length 
+    });
+    
+    const barStatus = this.calculateCategoryStatus(barItems.map((item: any) => item.status || 'NEW'));
+
+    const order = await this.prisma.order.update({
+      where: { id },
+      data: {},
+    });
+
+    // Emit WebSocket events to company-specific bar room
+    console.log('🔧 Emitting bar status change for company:', existingOrder.companyId);
+    
+    this.webSocketGateway.emitToCompany(existingOrder.companyId, 'bar', 'order_status_changed', {
+      orderId: order.id,
+      status: barStatus, // Bar-specific status
+      tableId: order.tableId,
+      timestamp: new Date().toISOString(),
+      department: 'bar'
+    });
+
+    // Notify waiters so waiter dashboards refresh
+    this.webSocketGateway.emitToCompany(existingOrder.companyId, 'waiters', 'order_status_changed', {
+      orderId: order.id,
+      status: barStatus,
+      tableId: order.tableId,
+      timestamp: new Date().toISOString(),
+      department: 'bar',
+    });
+    
+    // Also emit to admin room
+    this.webSocketGateway.emitToCompany(existingOrder.companyId, 'admin', 'order_status_changed', {
+      orderId: order.id,
+      status: order.status, // Original overall status for admin view
+      tableId: order.tableId,
+      timestamp: new Date().toISOString(),
+      department: 'bar' 
+    });
+
+    return order;
+  }
+
+
+  // Helper method to calculate overall order status based on individual items
+  private calculateOverallOrderStatus(items: any[]): string {
+    const { barItems, kitchenItems } = this.categorizeOrderItems(items);
+    
+    // Get statuses for each category
+    const drinkStatuses = barItems.map(item => item.status || 'NEW');
+    const foodStatuses = kitchenItems.map(item => item.status || 'NEW');
+    
+    // Calculate status for each category
+    const drinkStatus = this.calculateCategoryStatus(drinkStatuses);
+    const foodStatus = this.calculateCategoryStatus(foodStatuses);
+    
+    // Return the most advanced status
+    const statusPriority = {
+      'CANCELLED': 1,
+      'PENDING': 2,
+      'PREPARING': 3,
+      'READY': 4,
+      'COMPLETED': 5
+    };
+    
+    console.log('🔧 Status calculation:', { drinkStatus, foodStatus });
+    
+    const drinkPriority = statusPriority[drinkStatus as keyof typeof statusPriority] || 2;
+    const foodPriority = statusPriority[foodStatus as keyof typeof statusPriority] || 2;
+    const maxPriority = Math.max(drinkPriority, foodPriority);
+    
+    console.log('🔧 Priorities:', { drinkPriority, foodPriority, maxPriority });
+    
+    return Object.keys(statusPriority).find(key => 
+      statusPriority[key as keyof typeof statusPriority] === maxPriority
+    ) || 'PENDING';
+  }
+
+  private calculateCategoryStatus(statuses: string[]): string {
+    if (statuses.length === 0) return 'CANCELLED';
+    
+    if (statuses.every(status => status === 'CANCELLED')) {
+      return 'CANCELLED';
+    }
+    if (statuses.every(status => ['COLLECTED', 'SERVED'].includes(status))) {
+      return 'COMPLETED';
+    }
+    if (statuses.every(status => status === 'READY')) {
+      return 'READY';
+    }
+    if (statuses.some(status => status === 'PREPARING')) {
+      return 'PREPARING';
+    }
+    return 'PENDING';
+  }
+
+  async updateOrderTotal(id: string, newTotal: number) {
+    const order = await this.prisma.order.update({
+      where: { id },
+      data: { total: newTotal }
+    });
+
+    // Emit WebSocket event for order update
+    this.webSocketGateway.broadcastOrderUpdate(order.id, order.status, order.tableId);
+    
+    return order;
+  }
+
+  async updateOrder(id: string, orderUpdate: any) {
+    // Check if this is a customer order
+    if (id.startsWith('customer-order-')) {
+      const order = await this.prisma.customerOrder.update({
+        where: { id },
+        data: {
+          status: orderUpdate.status,
+          items: orderUpdate.items
+        }
+      });
+
+      // Broadcast the update
+      this.webSocketGateway.server.emit('order_updated', {
+        orderId: order.id,
+        order
+      });
+
+      return order;
+    }
+
+    // Handle regular orders
+    const order = await this.prisma.order.update({
+      where: { id },
+      data: {
+        status: orderUpdate.status,
+        items: orderUpdate.items
+      }
+    });
+
+    // Broadcast the update
+    this.webSocketGateway.server.emit('order_updated', {
+      orderId: order.id,
+      order
+    });
+
+    return order;
+  }
+
+  async addItemsToOrder(orderId: string, newItems: Array<{ menuItemId: string; quantity: number; notes?: string }>) {
+    const existingOrder = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: { include: { menuItem: true } } },
+    });
+
+    if (!existingOrder) {
+      throw new Error('Order not found');
+    }
+
+    const newItemsTotal = newItems.reduce((sum, item) => sum + (item.quantity * 10), 0);
+    const newTotal = Math.round((Number(existingOrder.total) + newItemsTotal) * 100) / 100;
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        total: newTotal,
+        items: {
+          create: newItems.map((item) => ({
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            notes: item.notes,
+            price: 10,
+          })),
+        },
+      },
+    });
+
+    const updatedOrder = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: { include: { menuItem: true } } },
+    });
+
+    if (!updatedOrder) {
+      throw new Error('Order not found');
+    }
+
+    // Emit WebSocket event for order modification to company-specific rooms
+    const companyId = updatedOrder.companyId;
+    
+    this.webSocketGateway.emitToCompany(companyId, 'waiters', 'order_modified', {
+      order: updatedOrder,
+      tableId: updatedOrder.tableId,
+      timestamp: new Date().toISOString(),
+      action: 'items_added',
+      newItems: newItems.length
+    });
+
+    this.webSocketGateway.emitToCompany(companyId, 'kitchen', 'order_modified', {
+      order: updatedOrder,
+      tableId: updatedOrder.tableId,
+      timestamp: new Date().toISOString(),
+      action: 'items_added',
+      newItems: newItems.length
+    });
+
+    this.webSocketGateway.emitToCompany(companyId, 'admin', 'order_modified', {
+      order: updatedOrder,
+      tableId: updatedOrder.tableId,
+      timestamp: new Date().toISOString(),
+      action: 'items_added',
+      newItems: newItems.length
+    });
+
+    return updatedOrder;
+  }
+
+  async updateItemStatus(orderId: string, itemId: string, status: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: { include: { menuItem: true } } },
+    });
+    if (!order) {
+      const customerOrder = await this.prisma.customerOrder.findUnique({ where: { id: orderId } });
+      if (customerOrder) {
+        return this.updateCustomerOrderItemStatus(orderId, itemId, status);
+      }
+      throw new Error('Order not found');
+    }
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: status as import('@prisma/client').OrderStatus },
+    });
+
+    const updatedOrder = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: { include: { menuItem: true } } },
+    });
+
+    if (!updatedOrder) {
+      throw new Error('Order not found');
+    }
+
+    const companyId = order.companyId;
+    this.webSocketGateway.emitToCompany(companyId, 'waiters', 'item_status_updated', {
+      orderId,
+      itemId,
+      status,
+      tableId: order.tableId,
+      timestamp: new Date().toISOString()
+    });
+    // Notify kitchen so the kitchen board refreshes
+    this.webSocketGateway.emitToCompany(companyId, 'kitchen', 'item_status_updated', {
+      orderId,
+      itemId,
+      status,
+      tableId: order.tableId,
+      timestamp: new Date().toISOString()
+    });
+    // Notify bar so the bar board refreshes
+    this.webSocketGateway.emitToCompany(companyId, 'bar', 'item_status_updated', {
+      orderId,
+      itemId,
+      status,
+      tableId: order.tableId,
+      timestamp: new Date().toISOString()
+    });
+    this.webSocketGateway.emitToCompany(companyId, 'admin', 'item_status_updated', {
+      orderId,
+      itemId,
+      status,
+      tableId: order.tableId,
+      timestamp: new Date().toISOString()
+    });
+
+    return updatedOrder;
+  }
+
+  private categorizeOrderItems(items: any[]): { barItems: any[], kitchenItems: any[] } {
+    const barItems: any[] = [];
+    const kitchenItems: any[] = [];
+
+    console.log('🔍 Categorizing items:', items.map(item => ({
+      id: item.menuItemId,
+      name: item.menuItem?.name || 'Unknown',
+      category: item.menuItem?.category || 'No Category'
+    })));
+
+    items.forEach(item => {
+      const menuItem = item.menuItem || this.getMenuItemById(item.menuItemId);
+      const category = (menuItem.category || '').toLowerCase();
+      
+      console.log(`🔍 Item ${item.menuItemId}: category="${category}", isDrink=${this.isDrinkCategory(category)}`);
+
+      // Drinks go to bar
+      if (this.isDrinkCategory(category)) {
+        barItems.push(item);
+        console.log(`✅ Added ${item.menuItemId} to bar items`);
+      } else {
+        // Food goes to kitchen
+        kitchenItems.push(item);
+        console.log(`✅ Added ${item.menuItemId} to kitchen items`);
+      }
+    });
+
+    console.log('🔍 Final categorization:', {
+      barItems: barItems.length,
+      kitchenItems: kitchenItems.length
+    });
+
+    return { barItems, kitchenItems };
+  }
+
+  private isDrinkCategory(category: string): boolean {
+    const drinkCategories = [
+      'drinks', 'beverage', 'beverages', 'soft drinks', 'beer', 'cocktails', 'cocktail',
+      'wine', 'wines', 'beers', 'whiskeys', 'vodkas', 'spirits', 'tequilas',
+      'shots', 'neat', 'brandies', 'cocktails'
+    ];
+    const c = (category || '').toLowerCase();
+    return drinkCategories.some(drinkCat => c.includes(drinkCat));
+  }
+
+  private getMenuItemById(menuItemId: string): any {
+    const menuItems = [
+      { id: 'menu-1', name: 'Caesar Salad', price: 12.99, description: 'Fresh romaine lettuce with caesar dressing', category: 'Appetizers', isAvailable: true },
+      { id: 'menu-2', name: 'Grilled Salmon', price: 24.99, description: 'Atlantic salmon with herbs and lemon', category: 'Main Courses', isAvailable: true },
+      { id: 'menu-3', name: 'Chicken Parmesan', price: 18.99, description: 'Breaded chicken with marinara sauce', category: 'Main Courses', isAvailable: true },
+      { id: 'menu-4', name: 'Chocolate Cake', price: 8.99, description: 'Rich chocolate cake with vanilla ice cream', category: 'Desserts', isAvailable: true },
+      { id: 'menu-5', name: 'Beef Burger', price: 16.99, description: 'Juicy beef patty with fries', category: 'Main Courses', isAvailable: true },
+      { id: 'menu-6', name: 'Tiramisu', price: 7.99, description: 'Classic Italian dessert', category: 'Desserts', isAvailable: true },
+      { id: 'menu-7', name: 'Chicken Wings', price: 11.99, description: 'Spicy buffalo wings with ranch dip', category: 'Appetizers', isAvailable: true },
+      { id: 'menu-8', name: 'Fish & Chips', price: 14.99, description: 'Beer-battered fish with crispy fries', category: 'Main Courses', isAvailable: true },
+      { id: 'menu-21', name: 'Mojito Classic', price: 15.00, description: 'The best cocktail in the land this week', category: 'COCKTAILS', isAvailable: true }
+    ];
+    
+    return menuItems.find(item => item.id === menuItemId) || { id: menuItemId, name: 'Unknown Item', price: 0 };
+  }
+
+  async getOrdersByTable(tableId: string) {
+    const [regularOrders, customerOrders] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { tableId },
+        include: {
+          table: true,
+          items: { include: { menuItem: true } },
+        },
+      }),
+      this.prisma.customerOrder.findMany({
+        where: { tableId },
+        include: {
+          table: true,
+          customerSession: true,
+          participant: { select: { id: true, displayName: true } },
+          items: {
+            include: {
+              menuItem: true,
+              claims: { include: { participant: { select: { displayName: true } } } },
+              modifiers: true,
+              bundleChoices: { include: { bundleSlot: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    type CustomerOrderRow = {
+      id: string;
+      tableId: string;
+      customerSessionId: string;
+      participantId: string | null;
+      status: string;
+      total: unknown;
+      createdAt: Date;
+      updatedAt: Date;
+      customerSession: { customerName?: string } | null;
+      participant: { displayName: string } | null;
+      table: unknown;
+      items: Array<{
+        id: string;
+        menuItemId: string;
+        quantity: number;
+        price: unknown;
+        specialInstructions: string | null;
+        status: string;
+        createdAt: Date;
+        menuItem: unknown;
+        isShareable: boolean;
+        claims?: Array<{ participant?: { displayName: string } }>;
+        modifiers?: Array<{ modifierGroupName: string; optionName: string; priceAdjustment: unknown }>;
+        bundleChoices?: Array<{ chosenItemName: string; bundleSlot?: { name: string } }>;
+      }>;
+    };
+    function buildSummary(item: CustomerOrderRow['items'][0]): string {
+      const parts: string[] = [];
+      if (item.modifiers?.length) parts.push(item.modifiers.map((m) => m.optionName).join(', '));
+      if (item.bundleChoices?.length) {
+        item.bundleChoices.forEach((bc) => {
+          parts.push(`${bc.bundleSlot?.name ?? 'Choice'}: ${bc.chosenItemName}`);
+        });
+      }
+      return parts.join(' · ') || '';
+    }
+    const transformed = (customerOrders as unknown as CustomerOrderRow[]).map((order) => ({
+      id: order.id,
+      tableId: order.tableId,
+      customerSessionId: order.customerSessionId,
+      status: order.status,
+      total: order.total,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      table: order.table,
+      items: order.items.map((item) => ({
+        id: item.id,
+        orderId: order.id,
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+        price: item.price,
+        notes: item.specialInstructions,
+        status: item.status,
+        createdAt: item.createdAt,
+        menuItem: item.menuItem,
+        modifiers: item.modifiers?.map((m: any) => ({ groupName: m.modifierGroupName, optionName: m.optionName, priceAdjustment: m.priceAdjustment })) ?? [],
+        bundleChoices: item.bundleChoices?.map((bc: any) => ({ slotName: bc.bundleSlot?.name ?? '', chosenItemName: bc.chosenItemName })) ?? [],
+        formattedSummary: buildSummary(item),
+      })),
+    }));
+
+    return [...regularOrders, ...transformed].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }
+
+  // Helper method to update customer order item status
+  private async updateCustomerOrderItemStatus(orderId: string, itemId: string, status: string) {
+    const order = await this.prisma.customerOrder.findUnique({
+      where: { id: orderId },
+      include: { items: { include: { menuItem: true } } },
+    });
+
+    if (!order) {
+      throw new Error('Customer order not found');
+    }
+
+    await this.prisma.customerOrderItem.update({
+      where: { id: itemId },
+      data: { status },
+    });
+
+    const updatedOrder = await this.prisma.customerOrder.findUnique({
+      where: { id: orderId },
+      include: { items: { include: { menuItem: true } } },
+    });
+
+    if (!updatedOrder) {
+      throw new Error('Customer order not found');
+    }
+
+    // When all items are cancelled, set the whole order to CANCELLED so it does not display as pending
+    const itemStatuses = (updatedOrder.items ?? []).map((i: { status?: string | null }) => (i.status ?? '').toString().toUpperCase()).filter(Boolean);
+    if (itemStatuses.length > 0 && itemStatuses.every((s: string) => s === 'CANCELLED')) {
+      await this.prisma.customerOrder.update({
+        where: { id: orderId },
+        data: { status: 'CANCELLED' },
+      });
+      (updatedOrder as { status: string }).status = 'CANCELLED';
+    }
+
+    console.log(`✅ Updated customer order item ${itemId} to ${status}`);
+
+    const companyId = order.companyId;
+    // Notify waiters
+    this.webSocketGateway.emitToCompany(companyId, 'waiters', 'item_status_updated', {
+      orderId,
+      itemId,
+      status,
+      tableId: order.tableId,
+      timestamp: new Date().toISOString()
+    });
+    // Notify kitchen so the kitchen board refreshes for customer orders
+    this.webSocketGateway.emitToCompany(companyId, 'kitchen', 'item_status_updated', {
+      orderId,
+      itemId,
+      status,
+      tableId: order.tableId,
+      timestamp: new Date().toISOString()
+    });
+    // Notify bar so the bar board refreshes for customer orders
+    this.webSocketGateway.emitToCompany(companyId, 'bar', 'item_status_updated', {
+      orderId,
+      itemId,
+      status,
+      tableId: order.tableId,
+      timestamp: new Date().toISOString()
+    });
+    // Notify customer (session-scoped room so only this table's session gets it)
+    const customerPayload = {
+      orderId,
+      itemId,
+      status,
+      timestamp: new Date(),
+    };
+    this.webSocketGateway.server
+      .to(`customer-${order.customerSessionId}`)
+      .emit('order_status_updated', customerPayload);
+    this.webSocketGateway.server
+      .to(`customer-${order.customerSessionId}`)
+      .emit('item_status_updated', { ...customerPayload, tableId: order.tableId });
+
+    return updatedOrder;
+  }
+
+  // Customer Order status updates for bar
+  private async updateCustomerOrderBarStatus(id: string, status: string) {
+    const existingOrder = await this.prisma.customerOrder.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            menuItem: true,
+          },
+        },
+        table: true,
+        customerSession: true,
+      },
+    });
+
+    if (!existingOrder) {
+      throw new Error('Customer order not found');
+    }
+
+    // Filter drink items
+    const drinkItems = existingOrder.items.filter((item: any) => {
+      const category = (item.menuItem?.category || '').toLowerCase();
+      return this.isDrinkItem(category);
+    });
+
+    console.log('🔧 Bar Update (Customer Order):', {
+      orderId: id,
+      newStatus: status,
+      drinkItems: drinkItems.length,
+      totalItems: existingOrder.items.length,
+    });
+
+    // Update drink item statuses
+    for (const item of drinkItems) {
+      await this.prisma.customerOrderItem.update({
+        where: { id: item.id },
+        data: { status },
+      });
+    }
+
+    const updatedOrder = await this.prisma.customerOrder.findUnique({
+      where: { id },
+      include: {
+        items: { include: { menuItem: true } },
+        table: true,
+        customerSession: true,
+      },
+    });
+
+    if (!updatedOrder) {
+      throw new Error('Customer order not found');
+    }
+
+    // Calculate bar-specific status
+    const barStatuses = drinkItems.map((item: any) => item.status || 'PENDING');
+    const barStatus = this.calculateCategoryStatus(barStatuses);
+
+    // Emit WebSocket events to company-specific bar room
+    console.log('🔧 Emitting customer order bar status change for company:', existingOrder.companyId);
+    
+    this.webSocketGateway.emitToCompany(existingOrder.companyId, 'bar', 'order_status_changed', {
+      orderId: id,
+      status: barStatus,
+      tableId: existingOrder.tableId,
+      timestamp: new Date().toISOString(),
+      department: 'bar',
+    });
+
+    // Notify waiters of bar status change so waiter dashboards refresh
+    this.webSocketGateway.emitToCompany(existingOrder.companyId, 'waiters', 'order_status_changed', {
+      orderId: id,
+      status: barStatus,
+      tableId: existingOrder.tableId,
+      timestamp: new Date().toISOString(),
+      department: 'bar',
+    });
+
+    // Notify customer about bar status update
+    this.webSocketGateway.server
+      .to(`customer-${existingOrder.customerSessionId}`)
+      .emit('order_status_updated', {
+        orderId: id,
+        status: barStatus,
+        department: 'bar',
+        timestamp: new Date(),
+        message: `Bar update: ${barStatus}`
+      });
+
+    // Transform to match expected format
+    return {
+      id: updatedOrder.id,
+      tableId: updatedOrder.tableId,
+      status: updatedOrder.status,
+      items: updatedOrder.items.map((item: any) => ({
+        id: item.id,
+        orderId: updatedOrder.id,
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+        price: item.price,
+        notes: item.specialInstructions,
+        status: item.status,
+        menuItem: item.menuItem,
+      })),
+      isCustomerOrder: true,
+    };
+  }
+
+  // Customer Order status updates for kitchen
+  private async updateCustomerOrderKitchenStatus(id: string, status: string) {
+    const existingOrder = await this.prisma.customerOrder.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            menuItem: true,
+          },
+        },
+        table: true,
+        customerSession: true,
+      },
+    });
+
+    if (!existingOrder) {
+      throw new Error('Customer order not found');
+    }
+
+    // Filter food items
+    const foodItems = existingOrder.items.filter((item: any) => {
+      const category = (item.menuItem?.category || '').toLowerCase();
+      return !this.isDrinkItem(category);
+    });
+
+    console.log('🔧 Kitchen Update (Customer Order):', {
+      orderId: id,
+      newStatus: status,
+      foodItems: foodItems.length,
+      totalItems: existingOrder.items.length,
+    });
+
+    // Update food item statuses
+    for (const item of foodItems) {
+      await this.prisma.customerOrderItem.update({
+        where: { id: item.id },
+        data: { status },
+      });
+    }
+
+    const updatedOrder = await this.prisma.customerOrder.findUnique({
+      where: { id },
+      include: {
+        items: { include: { menuItem: true } },
+        table: true,
+        customerSession: true,
+      },
+    });
+
+    if (!updatedOrder) {
+      throw new Error('Customer order not found');
+    }
+
+    // Calculate kitchen-specific status
+    const kitchenStatuses = foodItems.map((item: any) => item.status || 'PENDING');
+    const kitchenStatus = this.calculateCategoryStatus(kitchenStatuses);
+
+    // Emit WebSocket events to company-specific kitchen room
+    console.log('🔧 Emitting customer order kitchen status change for company:', existingOrder.companyId);
+    
+    this.webSocketGateway.emitToCompany(existingOrder.companyId, 'kitchen', 'order_status_changed', {
+      orderId: id,
+      status: kitchenStatus,
+      tableId: existingOrder.tableId,
+      timestamp: new Date().toISOString(),
+      department: 'kitchen',
+    });
+
+    // Notify waiters of kitchen status change so waiter dashboards refresh
+    this.webSocketGateway.emitToCompany(existingOrder.companyId, 'waiters', 'order_status_changed', {
+      orderId: id,
+      status: kitchenStatus,
+      tableId: existingOrder.tableId,
+      timestamp: new Date().toISOString(),
+      department: 'kitchen',
+    });
+
+    // Notify customer about kitchen status update
+    this.webSocketGateway.server
+      .to(`customer-${existingOrder.customerSessionId}`)
+      .emit('order_status_updated', {
+        orderId: id,
+        status: kitchenStatus,
+        department: 'kitchen',
+        timestamp: new Date(),
+        message: `Kitchen update: ${kitchenStatus}`
+      });
+
+    // Transform to match expected format
+    return {
+      id: updatedOrder.id,
+      tableId: updatedOrder.tableId,
+      status: updatedOrder.status,
+      items: updatedOrder.items.map((item: any) => ({
+        id: item.id,
+        orderId: updatedOrder.id,
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+        price: item.price,
+        notes: item.specialInstructions,
+        status: item.status,
+        menuItem: item.menuItem,
+      })),
+      isCustomerOrder: true,
+    };
+  }
+
+  private isDrinkItem(category: string): boolean {
+    const drinkCategories = [
+      'drinks',
+      'beverage',
+      'beverages',
+      'soft drinks',
+      'beer',
+      'cocktails',
+      'cocktail',
+      'wine',
+      'wines',
+      'beers',
+      'whiskeys',
+      'vodkas',
+      'spirits',
+      'tequilas',
+      'shots',
+      'neat',
+      'brandies',
+    ];
+    const c = (category || '').toLowerCase();
+    return drinkCategories.some((drinkCat) => c.includes(drinkCat.toLowerCase()));
+  }
+}

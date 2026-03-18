@@ -1,0 +1,41 @@
+.glass-surface {
+  background-color: var(--bg-glass);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  backdrop-filter: blur(16px);
+}
+
+/* Elevated glass card used for most panels */
+.glass-card {
+  background-color: var(--bg-glass);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Drawer / side panels */
+.glass-panel {
+  background-color: rgba(10, 12, 18, 0.96);
+  border-left: 1px solid var(--border-subtle);
+  backdrop-filter: blur(18px);
+  box-shadow: -4px 0 32px rgba(0, 0, 0, 0.75);
+}
+
+/* Dialogs / modals */
+.glass-dialog {
+  background-color: rgba(10, 12, 18, 0.98);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(20px);
+}
+
+/* Navigation bars / bottom nav */
+.glass-nav {
+  background-color: rgba(10, 12, 18, 0.9);
+  border-top: 1px solid var(--border-subtle);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.7);
+}
+

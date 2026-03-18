@@ -1,0 +1,22 @@
+2. Start the backend so it’s reachable from the phone
+
+In a terminal on the Windows machine:
+cd backendnpm run start:dev
+
+NestJS usually listens on all interfaces, so the phone can use http://<YOUR_PC_IP>:3000.
+If it still doesn’t work, in backend/src/main.ts use:
+await app.listen(3000, '0.0.0.0');
+
+3. Start the PWA so it’s reachable from the phone
+In another terminal:
+
+cd dark-culinary-pwang serve --host 0.0.0.0
+
+Or in angular.json, under projects.dark-culinary-pwa.architect.serve.options add "host": "0.0.0.0", then run ng serve.
+--host 0.0.0.0 makes the dev server listen on all network interfaces so the Pixel can load it.
+
+
+
+Run Prisma 
+cd backend && npx prisma studio --port 5555
+- make sure docker (postgres-container) is running

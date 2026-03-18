@@ -1,0 +1,16 @@
+{
+  "name": "restaurant-database-scripts",
+  "version": "1.0.0",
+  "description": "Database setup and management scripts for Restaurant App",
+  "scripts": {
+    "setup": "node setup-database.js",
+    "seed": "node seed-database.js",
+    "reset": "node reset-database.js",
+    "migrate": "cd ../backend && npx prisma migrate dev",
+    "generate": "cd ../backend && npx prisma generate",
+    "studio": "cd ../backend && npx prisma studio"
+  },
+  "dependencies": {
+    "pg": "^8.11.0"
+  }
+}

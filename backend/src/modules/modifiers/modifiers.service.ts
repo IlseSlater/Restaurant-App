@@ -1,0 +1,298 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { RestaurantWebSocketGateway } from '../websocket/websocket.gateway';
+
+export type SelectionType = 'SINGLE' | 'MULTIPLE';
+
+export interface CreateModifierGroupDto {
+  companyId: string;
+  name: string;
+  description?: string;
+  selectionType?: SelectionType;
+  isRequired?: boolean;
+  minSelections?: number;
+  maxSelections?: number;
+  sortOrder?: number;
+  options?: Array<{
+    name: string;
+    description?: string;
+    priceAdjustment?: number;
+    isDefault?: boolean;
+    isAvailable?: boolean;
+    sortOrder?: number;
+  }>;
+}
+
+export interface UpdateModifierGroupDto {
+  name?: string;
+  description?: string;
+  selectionType?: SelectionType;
+  isRequired?: boolean;
+  minSelections?: number;
+  maxSelections?: number;
+  sortOrder?: number;
+}
+
+export interface CreateModifierOptionDto {
+  name: string;
+  description?: string;
+  priceAdjustment?: number;
+  isDefault?: boolean;
+  isAvailable?: boolean;
+  sortOrder?: number;
+}
+
+export interface LinkModifierGroupDto {
+  modifierGroupId: string;
+  sortOrder?: number;
+  overrideRequired?: boolean;
+  overrideMin?: number;
+  overrideMax?: number;
+}
+
+export interface CreateBundleSlotDto {
+  name: string;
+  description?: string;
+  isRequired?: boolean;
+  sortOrder?: number;
+  allowedMenuItemIds?: string[];
+}
+
+@Injectable()
+export class ModifiersService {
+  constructor(
+    private prisma: PrismaService,
+    private webSocketGateway: RestaurantWebSocketGateway,
+  ) {}
+
+  async createGroup(dto: CreateModifierGroupDto) {
+    const { options = [], ...groupData } = dto;
+    return this.prisma.modifierGroup.create({
+      data: {
+        ...groupData,
+        options: options.length
+          ? {
+              create: options.map((opt) => ({
+                name: opt.name,
+                description: opt.description,
+                priceAdjustment: opt.priceAdjustment ?? 0,
+                isDefault: opt.isDefault ?? false,
+                isAvailable: opt.isAvailable ?? true,
+                sortOrder: opt.sortOrder ?? 0,
+              })),
+            }
+          : undefined,
+      },
+      include: { options: { orderBy: { sortOrder: 'asc' } } },
+    });
+  }
+
+  async findAllGroups(companyId: string) {
+    return this.prisma.modifierGroup.findMany({
+      where: { companyId },
+      include: { options: { orderBy: { sortOrder: 'asc' } } },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async findGroupById(id: string) {
+    const group = await this.prisma.modifierGroup.findUnique({
+      where: { id },
+      include: { options: { orderBy: { sortOrder: 'asc' } } },
+    });
+    if (!group) throw new NotFoundException('Modifier group not found');
+    return group;
+  }
+
+  async updateGroup(id: string, dto: UpdateModifierGroupDto) {
+    await this.findGroupById(id);
+    return this.prisma.modifierGroup.update({
+      where: { id },
+      data: dto,
+      include: { options: { orderBy: { sortOrder: 'asc' } } },
+    });
+  }
+
+  async deleteGroup(id: string) {
+    await this.findGroupById(id);
+    return this.prisma.modifierGroup.delete({ where: { id } });
+  }
+
+  async addOption(groupId: string, dto: CreateModifierOptionDto) {
+    await this.findGroupById(groupId);
+    return this.prisma.modifierOption.create({
+      data: {
+        modifierGroupId: groupId,
+        name: dto.name,
+        description: dto.description,
+        priceAdjustment: dto.priceAdjustment ?? 0,
+        isDefault: dto.isDefault ?? false,
+        isAvailable: dto.isAvailable ?? true,
+        sortOrder: dto.sortOrder ?? 0,
+      },
+    });
+  }
+
+  async updateOption(id: string, dto: Partial<CreateModifierOptionDto>) {
+    const option = await this.prisma.modifierOption.findUnique({
+      where: { id },
+      include: { group: { select: { companyId: true } } },
+    });
+    if (!option) throw new NotFoundException('Modifier option not found');
+    const updated = await this.prisma.modifierOption.update({
+      where: { id },
+      data: dto,
+    });
+    if (dto.isAvailable !== undefined && option.group?.companyId) {
+      this.webSocketGateway.emitToCompany(
+        option.group.companyId,
+        'customer',
+        'modifier-availability-changed',
+        {
+          modifierOptionId: id,
+          modifierGroupId: option.modifierGroupId,
+          isAvailable: updated.isAvailable,
+        },
+      );
+    }
+    return updated;
+  }
+
+  async deleteOption(id: string) {
+    const option = await this.prisma.modifierOption.findUnique({ where: { id } });
+    if (!option) throw new NotFoundException('Modifier option not found');
+    return this.prisma.modifierOption.delete({ where: { id } });
+  }
+
+  async linkModifierGroupToMenuItem(menuItemId: string, dto: LinkModifierGroupDto) {
+    const item = await this.prisma.menuItem.findUnique({ where: { id: menuItemId } });
+    if (!item) throw new NotFoundException('Menu item not found');
+    await this.findGroupById(dto.modifierGroupId);
+    return this.prisma.menuItemModifierGroup.create({
+      data: {
+        menuItemId,
+        modifierGroupId: dto.modifierGroupId,
+        sortOrder: dto.sortOrder ?? 0,
+        overrideRequired: dto.overrideRequired,
+        overrideMin: dto.overrideMin,
+        overrideMax: dto.overrideMax,
+      },
+      include: {
+        modifierGroup: { include: { options: { orderBy: { sortOrder: 'asc' } } } },
+      },
+    });
+  }
+
+  async unlinkModifierGroupFromMenuItem(menuItemId: string, modifierGroupId: string) {
+    const link = await this.prisma.menuItemModifierGroup.findUnique({
+      where: {
+        menuItemId_modifierGroupId: { menuItemId, modifierGroupId },
+      },
+    });
+    if (!link) throw new NotFoundException('Link not found');
+    return this.prisma.menuItemModifierGroup.delete({
+      where: { id: link.id },
+    });
+  }
+
+  async getConfiguration(menuItemId: string) {
+    const item = await this.prisma.menuItem.findUnique({
+      where: { id: menuItemId },
+      include: {
+        modifierGroups: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            modifierGroup: {
+              include: { options: { orderBy: { sortOrder: 'asc' } } },
+            },
+          },
+        },
+        bundleSlots: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            allowedItems: { include: { menuItem: true } },
+          },
+        },
+      },
+    });
+    if (!item) throw new NotFoundException('Menu item not found');
+
+    const modifierGroups = item.modifierGroups.map((mg) => ({
+      ...mg.modifierGroup,
+      overrideRequired: mg.overrideRequired ?? undefined,
+      overrideMin: mg.overrideMin ?? undefined,
+      overrideMax: mg.overrideMax ?? undefined,
+    }));
+
+    const bundleSlots = item.bundleSlots.map((slot) => ({
+      id: slot.id,
+      name: slot.name,
+      description: slot.description ?? undefined,
+      isRequired: slot.isRequired,
+      sortOrder: slot.sortOrder,
+      allowedItems: slot.allowedItems.map((opt: any) => opt.menuItem),
+    }));
+
+    return {
+      modifierGroups,
+      bundleSlots,
+    };
+  }
+
+  async createBundleSlot(menuItemId: string, dto: CreateBundleSlotDto) {
+    const item = await this.prisma.menuItem.findUnique({ where: { id: menuItemId } });
+    if (!item) throw new NotFoundException('Menu item not found');
+    const slot = await this.prisma.bundleSlot.create({
+      data: {
+        menuItemId,
+        name: dto.name,
+        description: dto.description,
+        isRequired: dto.isRequired ?? true,
+        sortOrder: dto.sortOrder ?? 0,
+      },
+    });
+    if (dto.allowedMenuItemIds?.length) {
+      await this.prisma.bundleSlotOption.createMany({
+        data: dto.allowedMenuItemIds.map((menuItemId) => ({
+          bundleSlotId: slot.id,
+          menuItemId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+    return this.prisma.bundleSlot.findUnique({
+      where: { id: slot.id },
+      include: { allowedItems: { include: { menuItem: true } } },
+    });
+  }
+
+  async updateBundleSlot(slotId: string, dto: Partial<CreateBundleSlotDto>) {
+    const slot = await this.prisma.bundleSlot.findUnique({ where: { id: slotId } });
+    if (!slot) throw new NotFoundException('Bundle slot not found');
+    const { allowedMenuItemIds, ...rest } = dto;
+    const data: any = { ...rest };
+    if (allowedMenuItemIds !== undefined) {
+      await this.prisma.bundleSlotOption.deleteMany({ where: { bundleSlotId: slotId } });
+      if (allowedMenuItemIds.length > 0) {
+        await this.prisma.bundleSlotOption.createMany({
+          data: allowedMenuItemIds.map((menuItemId) => ({
+            bundleSlotId: slotId,
+            menuItemId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+    return this.prisma.bundleSlot.update({
+      where: { id: slotId },
+      data,
+      include: { allowedItems: { include: { menuItem: true } } },
+    });
+  }
+
+  async deleteBundleSlot(slotId: string) {
+    const slot = await this.prisma.bundleSlot.findUnique({ where: { id: slotId } });
+    if (!slot) throw new NotFoundException('Bundle slot not found');
+    return this.prisma.bundleSlot.delete({ where: { id: slotId } });
+  }
+}

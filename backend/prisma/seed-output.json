@@ -1,0 +1,22 @@
+{
+  "companyId": "00000000-0000-0000-0000-000000000000",
+  "tableId": "cml84jvg70001fm3c5ln51i61",
+  "tableQr": "TABLE-SOCIAL-TEST-001",
+  "tableNumber": 5,
+  "sessionId": "cml84jvl90003fm3ca57mgm4h",
+  "participantIds": [
+    "cml84jvlw0005fm3c2r39y7qi",
+    "cml84jvmm0007fm3ci2nk44w5",
+    "cml84jvmr0009fm3c25qdufto"
+  ],
+  "creatorId": "cml84jvlw0005fm3c2r39y7qi",
+  "menuItemIds": {
+    "shareableNachos": "menu-shareable-nachos",
+    "shareablePizza": "menu-shareable-pizza",
+    "burger": "menu-burger",
+    "coffee": "menu-coffee"
+  },
+  "orderId": "cml84jvnc000bfm3c3wqkykm5",
+  "orderItemIdShareable": "cml84jvnc000dfm3c6hspwggl",
+  "baseUrl": "http://localhost:3000"
+}

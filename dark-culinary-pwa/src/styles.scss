@@ -1,0 +1,137 @@
+@use '@angular/material' as mat;
+@use 'styles/tokens';
+@use 'styles/typography';
+@use 'styles/glassmorphism';
+@use 'styles/animations';
+@use 'styles/utilities';
+@use 'styles/interactions';
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+// Dark Culinary custom palettes (neon herb green primary, saffron accent)
+$culinary-primary-map: (
+  50: #e8fff2,
+  100: #c5ffdf,
+  200: #9effc9,
+  300: #77ffb3,
+  400: #88ffb6,
+  500: #88ffb6,
+  600: #6de69e,
+  700: #52cc86,
+  800: #37b36e,
+  900: #1c9956,
+  contrast: (
+    50: #050608,
+    100: #050608,
+    200: #050608,
+    300: #050608,
+    400: #050608,
+    500: #050608,
+    600: #050608,
+    700: #f4f5f7,
+    800: #f4f5f7,
+    900: #f4f5f7,
+  ),
+);
+$culinary-accent-map: (
+  50: #fff4e6,
+  100: #ffe4c2,
+  200: #ffd499,
+  300: #ffc470,
+  400: #ffb86c,
+  500: #ffb86c,
+  600: #e6a65c,
+  700: #cc944c,
+  800: #b3823d,
+  900: #99702d,
+  contrast: (
+    50: #050608,
+    100: #050608,
+    200: #050608,
+    300: #050608,
+    400: #050608,
+    500: #050608,
+    600: #050608,
+    700: #f4f5f7,
+    800: #f4f5f7,
+    900: #f4f5f7,
+  ),
+);
+
+$primary-palette: mat.m2-define-palette($culinary-primary-map, 500);
+$accent-palette: mat.m2-define-palette($culinary-accent-map, 500);
+$theme: mat.m2-define-dark-theme((
+  color: (
+    primary: $primary-palette,
+    accent: $accent-palette,
+  ),
+));
+
+@include mat.all-component-themes($theme);
+
+// Snackbar panel classes for NotificationService
+.dc-snackbar-success {
+  --mdc-snackbar-container-color: var(--status-success);
+  --mdc-snackbar-supporting-text-color: var(--text-inverse);
+}
+.dc-snackbar-error {
+  --mdc-snackbar-container-color: var(--status-error);
+  --mdc-snackbar-supporting-text-color: var(--text-inverse);
+}
+.dc-snackbar-info {
+  --mdc-snackbar-container-color: var(--status-info);
+  --mdc-snackbar-supporting-text-color: var(--text-inverse);
+}
+.dc-snackbar-warn {
+  --mdc-snackbar-container-color: var(--status-warning);
+  --mdc-snackbar-supporting-text-color: var(--text-inverse);
+}
+
+/* Bottom sheets */
+.dc-bottom-sheet,
+.dc-about-sheet,
+.dc-continue-table-sheet,
+.dc-item-detail-sheet {
+  background-color: var(--bg-sheet);
+  border-radius: 16px 16px 0 0;
+  border-top: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(18px);
+}
+
+/* Glass dialog panel */
+.dc-glass-dialog {
+  @extend .glass-dialog;
+}
+
+/* Global focus ring for interactive controls */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Respect reduced motion preference (WCAG) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+

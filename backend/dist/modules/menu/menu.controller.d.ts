@@ -1,0 +1,86 @@
+import { MenuService } from './menu.service';
+export declare class MenuController {
+    private readonly menuService;
+    constructor(menuService: MenuService);
+    getAllMenuItems(companyId?: string): Promise<{
+        description: string | null;
+        id: string;
+        companyId: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        price: import("@prisma/client/runtime/library").Decimal;
+        category: string;
+        imageUrl: string | null;
+        isAvailable: boolean;
+        preparationTime: number | null;
+        isShareable: boolean;
+        maxClaimants: number | null;
+        isBundle: boolean;
+    }[]>;
+    getCategories(): Promise<string[]>;
+    getMenuItem(id: string): Promise<{
+        description: string | null;
+        id: string;
+        companyId: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        price: import("@prisma/client/runtime/library").Decimal;
+        category: string;
+        imageUrl: string | null;
+        isAvailable: boolean;
+        preparationTime: number | null;
+        isShareable: boolean;
+        maxClaimants: number | null;
+        isBundle: boolean;
+    } | null>;
+    createMenuItem(createDto: any): Promise<{
+        description: string | null;
+        id: string;
+        companyId: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        price: import("@prisma/client/runtime/library").Decimal;
+        category: string;
+        imageUrl: string | null;
+        isAvailable: boolean;
+        preparationTime: number | null;
+        isShareable: boolean;
+        maxClaimants: number | null;
+        isBundle: boolean;
+    }>;
+    updateMenuItem(id: string, updateDto: any): Promise<{
+        description: string | null;
+        id: string;
+        companyId: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        price: import("@prisma/client/runtime/library").Decimal;
+        category: string;
+        imageUrl: string | null;
+        isAvailable: boolean;
+        preparationTime: number | null;
+        isShareable: boolean;
+        maxClaimants: number | null;
+        isBundle: boolean;
+    }>;
+    deleteMenuItem(id: string): Promise<{
+        description: string | null;
+        id: string;
+        companyId: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        price: import("@prisma/client/runtime/library").Decimal;
+        category: string;
+        imageUrl: string | null;
+        isAvailable: boolean;
+        preparationTime: number | null;
+        isShareable: boolean;
+        maxClaimants: number | null;
+        isBundle: boolean;
+    }>;
+}
