@@ -37,27 +37,17 @@ export declare class CustomerSessionsController {
         sessionId: string;
     }>;
     getSession(id: string): Promise<({
-        table: {
-            number: number;
-            id: string;
-            companyId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            qrCode: string;
-            status: import(".prisma/client").$Enums.TableStatus;
-            waiterId: string | null;
-        };
         orders: ({
             items: ({
                 menuItem: {
-                    description: string | null;
                     id: string;
-                    companyId: string;
                     name: string;
+                    category: string;
+                    description: string | null;
                     createdAt: Date;
                     updatedAt: Date;
+                    companyId: string;
                     price: import("@prisma/client/runtime/library").Decimal;
-                    category: string;
                     imageUrl: string | null;
                     isAvailable: boolean;
                     preparationTime: number | null;
@@ -68,20 +58,20 @@ export declare class CustomerSessionsController {
             } & {
                 id: string;
                 createdAt: Date;
+                quantity: number;
                 status: string;
+                menuItemId: string;
                 price: import("@prisma/client/runtime/library").Decimal;
                 isShareable: boolean;
                 maxClaimants: number;
-                menuItemId: string;
-                quantity: number;
                 customerOrderId: string;
                 specialInstructions: string | null;
             })[];
         } & {
             id: string;
-            companyId: string;
             createdAt: Date;
             updatedAt: Date;
+            companyId: string;
             status: string;
             tableId: string;
             total: import("@prisma/client/runtime/library").Decimal;
@@ -92,6 +82,16 @@ export declare class CustomerSessionsController {
             serviceFeePercentage: import("@prisma/client/runtime/library").Decimal;
             paymentStatus: string;
         })[];
+        table: {
+            number: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            companyId: string;
+            status: import(".prisma/client").$Enums.TableStatus;
+            qrCode: string;
+            waiterId: string | null;
+        };
         participants: {
             id: string;
             displayName: string;
@@ -102,8 +102,8 @@ export declare class CustomerSessionsController {
         companyId: string;
         isActive: boolean;
         tableId: string;
-        customerName: string;
         phoneNumber: string | null;
+        customerName: string;
         dietaryPreferences: string[];
         allergies: string[];
         sessionStart: Date;
@@ -128,8 +128,8 @@ export declare class CustomerSessionsController {
         companyId: string;
         isActive: boolean;
         tableId: string;
-        customerName: string;
         phoneNumber: string | null;
+        customerName: string;
         dietaryPreferences: string[];
         allergies: string[];
         sessionStart: Date;
@@ -146,8 +146,8 @@ export declare class CustomerSessionsController {
         companyId: string;
         isActive: boolean;
         tableId: string;
-        customerName: string;
         phoneNumber: string | null;
+        customerName: string;
         dietaryPreferences: string[];
         allergies: string[];
         sessionStart: Date;
@@ -163,14 +163,14 @@ export declare class CustomerSessionsController {
         orders: ({
             items: ({
                 menuItem: {
-                    description: string | null;
                     id: string;
-                    companyId: string;
                     name: string;
+                    category: string;
+                    description: string | null;
                     createdAt: Date;
                     updatedAt: Date;
+                    companyId: string;
                     price: import("@prisma/client/runtime/library").Decimal;
-                    category: string;
                     imageUrl: string | null;
                     isAvailable: boolean;
                     preparationTime: number | null;
@@ -181,20 +181,20 @@ export declare class CustomerSessionsController {
             } & {
                 id: string;
                 createdAt: Date;
+                quantity: number;
                 status: string;
+                menuItemId: string;
                 price: import("@prisma/client/runtime/library").Decimal;
                 isShareable: boolean;
                 maxClaimants: number;
-                menuItemId: string;
-                quantity: number;
                 customerOrderId: string;
                 specialInstructions: string | null;
             })[];
         } & {
             id: string;
-            companyId: string;
             createdAt: Date;
             updatedAt: Date;
+            companyId: string;
             status: string;
             tableId: string;
             total: import("@prisma/client/runtime/library").Decimal;
@@ -210,8 +210,8 @@ export declare class CustomerSessionsController {
         companyId: string;
         isActive: boolean;
         tableId: string;
-        customerName: string;
         phoneNumber: string | null;
+        customerName: string;
         dietaryPreferences: string[];
         allergies: string[];
         sessionStart: Date;
@@ -224,27 +224,17 @@ export declare class CustomerSessionsController {
         expiryReason: string | null;
     })[]>;
     getSessionByPhone(phoneNumber: string): Promise<({
-        table: {
-            number: number;
-            id: string;
-            companyId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            qrCode: string;
-            status: import(".prisma/client").$Enums.TableStatus;
-            waiterId: string | null;
-        };
         orders: ({
             items: ({
                 menuItem: {
-                    description: string | null;
                     id: string;
-                    companyId: string;
                     name: string;
+                    category: string;
+                    description: string | null;
                     createdAt: Date;
                     updatedAt: Date;
+                    companyId: string;
                     price: import("@prisma/client/runtime/library").Decimal;
-                    category: string;
                     imageUrl: string | null;
                     isAvailable: boolean;
                     preparationTime: number | null;
@@ -255,20 +245,20 @@ export declare class CustomerSessionsController {
             } & {
                 id: string;
                 createdAt: Date;
+                quantity: number;
                 status: string;
+                menuItemId: string;
                 price: import("@prisma/client/runtime/library").Decimal;
                 isShareable: boolean;
                 maxClaimants: number;
-                menuItemId: string;
-                quantity: number;
                 customerOrderId: string;
                 specialInstructions: string | null;
             })[];
         } & {
             id: string;
-            companyId: string;
             createdAt: Date;
             updatedAt: Date;
+            companyId: string;
             status: string;
             tableId: string;
             total: import("@prisma/client/runtime/library").Decimal;
@@ -279,13 +269,23 @@ export declare class CustomerSessionsController {
             serviceFeePercentage: import("@prisma/client/runtime/library").Decimal;
             paymentStatus: string;
         })[];
+        table: {
+            number: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            companyId: string;
+            status: import(".prisma/client").$Enums.TableStatus;
+            qrCode: string;
+            waiterId: string | null;
+        };
     } & {
         id: string;
         companyId: string;
         isActive: boolean;
         tableId: string;
-        customerName: string;
         phoneNumber: string | null;
+        customerName: string;
         dietaryPreferences: string[];
         allergies: string[];
         sessionStart: Date;

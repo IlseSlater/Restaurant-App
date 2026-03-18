@@ -5,20 +5,16 @@ export declare class CustomerOrdersController {
     createOrder(data: any): Promise<any>;
     getOrdersBySession(sessionId: string): Promise<{
         status: string;
-        participant: {
-            id: string;
-            displayName: string;
-        } | null;
         items: ({
             menuItem: {
-                description: string | null;
                 id: string;
-                companyId: string;
                 name: string;
+                category: string;
+                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
+                companyId: string;
                 price: import("@prisma/client/runtime/library").Decimal;
-                category: string;
                 imageUrl: string | null;
                 isAvailable: boolean;
                 preparationTime: number | null;
@@ -38,9 +34,9 @@ export declare class CustomerOrdersController {
             }[];
             bundleChoices: ({
                 bundleSlot: {
-                    description: string | null;
                     id: string;
                     name: string;
+                    description: string | null;
                     createdAt: Date;
                     updatedAt: Date;
                     menuItemId: string;
@@ -58,19 +54,23 @@ export declare class CustomerOrdersController {
         } & {
             id: string;
             createdAt: Date;
+            quantity: number;
             status: string;
+            menuItemId: string;
             price: import("@prisma/client/runtime/library").Decimal;
             isShareable: boolean;
             maxClaimants: number;
-            menuItemId: string;
-            quantity: number;
             customerOrderId: string;
             specialInstructions: string | null;
         })[];
+        participant: {
+            id: string;
+            displayName: string;
+        } | null;
         id: string;
-        companyId: string;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         tableId: string;
         total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
@@ -82,44 +82,16 @@ export declare class CustomerOrdersController {
     }[]>;
     getOrder(id: string): Promise<{
         status: string;
-        table: {
-            number: number;
-            id: string;
-            companyId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            qrCode: string;
-            status: import(".prisma/client").$Enums.TableStatus;
-            waiterId: string | null;
-        };
-        customerSession: {
-            id: string;
-            companyId: string;
-            isActive: boolean;
-            tableId: string;
-            customerName: string;
-            phoneNumber: string | null;
-            dietaryPreferences: string[];
-            allergies: string[];
-            sessionStart: Date;
-            sessionEnd: Date | null;
-            lastActivity: Date;
-            scanLocation: import("@prisma/client/runtime/library").JsonValue | null;
-            expectedLocation: import("@prisma/client/runtime/library").JsonValue | null;
-            billPaidBy: string | null;
-            billPaidAt: Date | null;
-            expiryReason: string | null;
-        };
         items: ({
             menuItem: {
-                description: string | null;
                 id: string;
-                companyId: string;
                 name: string;
+                category: string;
+                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
+                companyId: string;
                 price: import("@prisma/client/runtime/library").Decimal;
-                category: string;
                 imageUrl: string | null;
                 isAvailable: boolean;
                 preparationTime: number | null;
@@ -139,9 +111,9 @@ export declare class CustomerOrdersController {
             }[];
             bundleChoices: ({
                 bundleSlot: {
-                    description: string | null;
                     id: string;
                     name: string;
+                    description: string | null;
                     createdAt: Date;
                     updatedAt: Date;
                     menuItemId: string;
@@ -159,19 +131,47 @@ export declare class CustomerOrdersController {
         } & {
             id: string;
             createdAt: Date;
+            quantity: number;
             status: string;
+            menuItemId: string;
             price: import("@prisma/client/runtime/library").Decimal;
             isShareable: boolean;
             maxClaimants: number;
-            menuItemId: string;
-            quantity: number;
             customerOrderId: string;
             specialInstructions: string | null;
         })[];
+        table: {
+            number: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            companyId: string;
+            status: import(".prisma/client").$Enums.TableStatus;
+            qrCode: string;
+            waiterId: string | null;
+        };
+        customerSession: {
+            id: string;
+            companyId: string;
+            isActive: boolean;
+            tableId: string;
+            phoneNumber: string | null;
+            customerName: string;
+            dietaryPreferences: string[];
+            allergies: string[];
+            sessionStart: Date;
+            sessionEnd: Date | null;
+            lastActivity: Date;
+            scanLocation: import("@prisma/client/runtime/library").JsonValue | null;
+            expectedLocation: import("@prisma/client/runtime/library").JsonValue | null;
+            billPaidBy: string | null;
+            billPaidAt: Date | null;
+            expiryReason: string | null;
+        };
         id: string;
-        companyId: string;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         tableId: string;
         total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
@@ -184,13 +184,42 @@ export declare class CustomerOrdersController {
     updateOrderStatus(id: string, data: {
         status: string;
     }): Promise<{
+        items: ({
+            menuItem: {
+                id: string;
+                name: string;
+                category: string;
+                description: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                companyId: string;
+                price: import("@prisma/client/runtime/library").Decimal;
+                imageUrl: string | null;
+                isAvailable: boolean;
+                preparationTime: number | null;
+                isShareable: boolean;
+                maxClaimants: number | null;
+                isBundle: boolean;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            quantity: number;
+            status: string;
+            menuItemId: string;
+            price: import("@prisma/client/runtime/library").Decimal;
+            isShareable: boolean;
+            maxClaimants: number;
+            customerOrderId: string;
+            specialInstructions: string | null;
+        })[];
         customerSession: {
             id: string;
             companyId: string;
             isActive: boolean;
             tableId: string;
-            customerName: string;
             phoneNumber: string | null;
+            customerName: string;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -202,40 +231,11 @@ export declare class CustomerOrdersController {
             billPaidAt: Date | null;
             expiryReason: string | null;
         };
-        items: ({
-            menuItem: {
-                description: string | null;
-                id: string;
-                companyId: string;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                price: import("@prisma/client/runtime/library").Decimal;
-                category: string;
-                imageUrl: string | null;
-                isAvailable: boolean;
-                preparationTime: number | null;
-                isShareable: boolean;
-                maxClaimants: number | null;
-                isBundle: boolean;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            status: string;
-            price: import("@prisma/client/runtime/library").Decimal;
-            isShareable: boolean;
-            maxClaimants: number;
-            menuItemId: string;
-            quantity: number;
-            customerOrderId: string;
-            specialInstructions: string | null;
-        })[];
     } & {
         id: string;
-        companyId: string;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         status: string;
         tableId: string;
         total: import("@prisma/client/runtime/library").Decimal;
@@ -249,13 +249,42 @@ export declare class CustomerOrdersController {
     updateBarOrderStatus(id: string, data: {
         status: string;
     }): Promise<{
+        items: ({
+            menuItem: {
+                id: string;
+                name: string;
+                category: string;
+                description: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                companyId: string;
+                price: import("@prisma/client/runtime/library").Decimal;
+                imageUrl: string | null;
+                isAvailable: boolean;
+                preparationTime: number | null;
+                isShareable: boolean;
+                maxClaimants: number | null;
+                isBundle: boolean;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            quantity: number;
+            status: string;
+            menuItemId: string;
+            price: import("@prisma/client/runtime/library").Decimal;
+            isShareable: boolean;
+            maxClaimants: number;
+            customerOrderId: string;
+            specialInstructions: string | null;
+        })[];
         customerSession: {
             id: string;
             companyId: string;
             isActive: boolean;
             tableId: string;
-            customerName: string;
             phoneNumber: string | null;
+            customerName: string;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -267,40 +296,11 @@ export declare class CustomerOrdersController {
             billPaidAt: Date | null;
             expiryReason: string | null;
         };
-        items: ({
-            menuItem: {
-                description: string | null;
-                id: string;
-                companyId: string;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                price: import("@prisma/client/runtime/library").Decimal;
-                category: string;
-                imageUrl: string | null;
-                isAvailable: boolean;
-                preparationTime: number | null;
-                isShareable: boolean;
-                maxClaimants: number | null;
-                isBundle: boolean;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            status: string;
-            price: import("@prisma/client/runtime/library").Decimal;
-            isShareable: boolean;
-            maxClaimants: number;
-            menuItemId: string;
-            quantity: number;
-            customerOrderId: string;
-            specialInstructions: string | null;
-        })[];
     } & {
         id: string;
-        companyId: string;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         status: string;
         tableId: string;
         total: import("@prisma/client/runtime/library").Decimal;
@@ -314,13 +314,42 @@ export declare class CustomerOrdersController {
     updateKitchenOrderStatus(id: string, data: {
         status: string;
     }): Promise<{
+        items: ({
+            menuItem: {
+                id: string;
+                name: string;
+                category: string;
+                description: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                companyId: string;
+                price: import("@prisma/client/runtime/library").Decimal;
+                imageUrl: string | null;
+                isAvailable: boolean;
+                preparationTime: number | null;
+                isShareable: boolean;
+                maxClaimants: number | null;
+                isBundle: boolean;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            quantity: number;
+            status: string;
+            menuItemId: string;
+            price: import("@prisma/client/runtime/library").Decimal;
+            isShareable: boolean;
+            maxClaimants: number;
+            customerOrderId: string;
+            specialInstructions: string | null;
+        })[];
         customerSession: {
             id: string;
             companyId: string;
             isActive: boolean;
             tableId: string;
-            customerName: string;
             phoneNumber: string | null;
+            customerName: string;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -332,40 +361,11 @@ export declare class CustomerOrdersController {
             billPaidAt: Date | null;
             expiryReason: string | null;
         };
-        items: ({
-            menuItem: {
-                description: string | null;
-                id: string;
-                companyId: string;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                price: import("@prisma/client/runtime/library").Decimal;
-                category: string;
-                imageUrl: string | null;
-                isAvailable: boolean;
-                preparationTime: number | null;
-                isShareable: boolean;
-                maxClaimants: number | null;
-                isBundle: boolean;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            status: string;
-            price: import("@prisma/client/runtime/library").Decimal;
-            isShareable: boolean;
-            maxClaimants: number;
-            menuItemId: string;
-            quantity: number;
-            customerOrderId: string;
-            specialInstructions: string | null;
-        })[];
     } & {
         id: string;
-        companyId: string;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         status: string;
         tableId: string;
         total: import("@prisma/client/runtime/library").Decimal;
@@ -379,13 +379,42 @@ export declare class CustomerOrdersController {
     updateItemStatus(orderId: string, itemId: string, data: {
         status: string;
     }): Promise<{
+        items: ({
+            menuItem: {
+                id: string;
+                name: string;
+                category: string;
+                description: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                companyId: string;
+                price: import("@prisma/client/runtime/library").Decimal;
+                imageUrl: string | null;
+                isAvailable: boolean;
+                preparationTime: number | null;
+                isShareable: boolean;
+                maxClaimants: number | null;
+                isBundle: boolean;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            quantity: number;
+            status: string;
+            menuItemId: string;
+            price: import("@prisma/client/runtime/library").Decimal;
+            isShareable: boolean;
+            maxClaimants: number;
+            customerOrderId: string;
+            specialInstructions: string | null;
+        })[];
         customerSession: {
             id: string;
             companyId: string;
             isActive: boolean;
             tableId: string;
-            customerName: string;
             phoneNumber: string | null;
+            customerName: string;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -397,40 +426,11 @@ export declare class CustomerOrdersController {
             billPaidAt: Date | null;
             expiryReason: string | null;
         };
-        items: ({
-            menuItem: {
-                description: string | null;
-                id: string;
-                companyId: string;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                price: import("@prisma/client/runtime/library").Decimal;
-                category: string;
-                imageUrl: string | null;
-                isAvailable: boolean;
-                preparationTime: number | null;
-                isShareable: boolean;
-                maxClaimants: number | null;
-                isBundle: boolean;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            status: string;
-            price: import("@prisma/client/runtime/library").Decimal;
-            isShareable: boolean;
-            maxClaimants: number;
-            menuItemId: string;
-            quantity: number;
-            customerOrderId: string;
-            specialInstructions: string | null;
-        })[];
     } & {
         id: string;
-        companyId: string;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         status: string;
         tableId: string;
         total: import("@prisma/client/runtime/library").Decimal;

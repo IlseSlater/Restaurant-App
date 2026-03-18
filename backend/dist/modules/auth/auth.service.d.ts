@@ -32,18 +32,18 @@ export declare class AuthService {
     getProfile(id: string): Promise<{
         company: {
             id: string;
-            email: string | null;
             name: string;
-            phone: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
+            email: string | null;
+            phone: string | null;
+            address: string | null;
+            website: string | null;
+            isActive: boolean;
             slug: string;
             logo: string | null;
             primaryColor: string | null;
             secondaryColor: string | null;
-            address: string | null;
-            website: string | null;
             timezone: string;
             currency: string;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -52,17 +52,17 @@ export declare class AuthService {
         } | null;
     } & {
         id: string;
+        name: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         companyId: string | null;
         email: string;
-        name: string | null;
         phone: string | null;
         password: string | null;
         pin: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         isActive: boolean;
         lastLogin: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     private generateToken;
     private sanitizeUser;

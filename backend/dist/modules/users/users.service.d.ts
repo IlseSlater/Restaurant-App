@@ -17,17 +17,17 @@ export declare class UsersService {
     updateUser(id: string, updateDto: any): Promise<any>;
     deleteUser(id: string): Promise<{
         id: string;
+        name: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         companyId: string | null;
         email: string;
-        name: string | null;
         phone: string | null;
         password: string | null;
         pin: string | null;
         role: import(".prisma/client").$Enums.UserRole;
         isActive: boolean;
         lastLogin: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     private transformUser;
 }
