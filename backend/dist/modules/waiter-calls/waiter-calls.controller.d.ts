@@ -37,8 +37,8 @@ export declare class WaiterCallsController {
         companyId: string;
         message: string | null;
         resolvedAt: Date | null;
-        status: string;
         tableId: string;
+        status: string;
         customerSessionId: string;
         callType: string;
         acknowledgedAt: Date | null;
@@ -81,8 +81,8 @@ export declare class WaiterCallsController {
         companyId: string;
         message: string | null;
         resolvedAt: Date | null;
-        status: string;
         tableId: string;
+        status: string;
         customerSessionId: string;
         callType: string;
         acknowledgedAt: Date | null;
@@ -123,8 +123,8 @@ export declare class WaiterCallsController {
         companyId: string;
         message: string | null;
         resolvedAt: Date | null;
-        status: string;
         tableId: string;
+        status: string;
         customerSessionId: string;
         callType: string;
         acknowledgedAt: Date | null;
@@ -155,8 +155,8 @@ export declare class WaiterCallsController {
         companyId: string;
         message: string | null;
         resolvedAt: Date | null;
-        status: string;
         tableId: string;
+        status: string;
         customerSessionId: string;
         callType: string;
         acknowledgedAt: Date | null;
@@ -197,8 +197,8 @@ export declare class WaiterCallsController {
         companyId: string;
         message: string | null;
         resolvedAt: Date | null;
-        status: string;
         tableId: string;
+        status: string;
         customerSessionId: string;
         callType: string;
         acknowledgedAt: Date | null;

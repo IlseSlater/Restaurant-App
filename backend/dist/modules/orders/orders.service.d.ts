@@ -47,9 +47,9 @@ export declare class OrdersService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     }) | {
         id: string;
@@ -127,9 +127,9 @@ export declare class OrdersService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     }) | null>;
     createOrder(createDto: {
@@ -175,9 +175,9 @@ export declare class OrdersService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     }>;
     updateOrderStatus(id: string, status: string): Promise<any>;
@@ -187,9 +187,9 @@ export declare class OrdersService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     } | {
         id: string;
@@ -213,9 +213,9 @@ export declare class OrdersService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     } | {
         id: string;
@@ -241,9 +241,9 @@ export declare class OrdersService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     }>;
     updateOrder(id: string, orderUpdate: any): Promise<{
@@ -252,17 +252,17 @@ export declare class OrdersService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     } | {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: string;
         tableId: string;
+        status: string;
         total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
         participantId: string | null;
@@ -308,9 +308,9 @@ export declare class OrdersService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     }>;
     updateItemStatus(orderId: string, itemId: string, status: string): Promise<({
@@ -348,8 +348,8 @@ export declare class OrdersService {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: string;
         tableId: string;
+        status: string;
         total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
         participantId: string | null;
@@ -390,9 +390,9 @@ export declare class OrdersService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     })>;
     private categorizeOrderItems;
@@ -441,9 +441,9 @@ export declare class OrdersService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     }) | {
         id: string;

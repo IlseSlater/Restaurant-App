@@ -305,9 +305,9 @@ export declare class CompaniesService {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: Prisma.Decimal;
     })[]>;
     getCompanyUsers(companyId: string): Promise<{

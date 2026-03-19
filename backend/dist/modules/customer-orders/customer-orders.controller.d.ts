@@ -236,8 +236,8 @@ export declare class CustomerOrdersController {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: string;
         tableId: string;
+        status: string;
         total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
         participantId: string | null;
@@ -301,8 +301,8 @@ export declare class CustomerOrdersController {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: string;
         tableId: string;
+        status: string;
         total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
         participantId: string | null;
@@ -366,8 +366,8 @@ export declare class CustomerOrdersController {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: string;
         tableId: string;
+        status: string;
         total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
         participantId: string | null;
@@ -431,8 +431,8 @@ export declare class CustomerOrdersController {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: string;
         tableId: string;
+        status: string;
         total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
         participantId: string | null;

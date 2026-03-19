@@ -53,8 +53,8 @@ export declare class CustomerSessionsService {
             createdAt: Date;
             updatedAt: Date;
             companyId: string;
-            status: string;
             tableId: string;
+            status: string;
             total: Prisma.Decimal;
             customerSessionId: string;
             participantId: string | null;
@@ -205,8 +205,8 @@ export declare class CustomerSessionsService {
             createdAt: Date;
             updatedAt: Date;
             companyId: string;
-            status: string;
             tableId: string;
+            status: string;
             total: Prisma.Decimal;
             customerSessionId: string;
             participantId: string | null;
@@ -269,8 +269,8 @@ export declare class CustomerSessionsService {
             createdAt: Date;
             updatedAt: Date;
             companyId: string;
-            status: string;
             tableId: string;
+            status: string;
             total: Prisma.Decimal;
             customerSessionId: string;
             participantId: string | null;

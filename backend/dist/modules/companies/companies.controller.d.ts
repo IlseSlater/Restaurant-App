@@ -304,9 +304,9 @@ export declare class CompaniesController {
         updatedAt: Date;
         companyId: string;
         notes: string | null;
-        status: import(".prisma/client").$Enums.OrderStatus;
         tableId: string;
         customerId: string | null;
+        status: import(".prisma/client").$Enums.OrderStatus;
         total: import("@prisma/client/runtime/library").Decimal;
     })[]>;
     getCompanyUsers(companyId: string): Promise<{
