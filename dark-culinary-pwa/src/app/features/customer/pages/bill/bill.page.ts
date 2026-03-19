@@ -450,7 +450,12 @@ export class BillPage implements OnInit, OnDestroy {
             }
           }
         },
-        error: () => this.notifications.error('Could not load bill'),
+        error: () => {
+          // Common after DB reset/reseed: local session exists but server record does not.
+          this.sessionService.clearLocalSession(session.id);
+          this.notifications.warn('Session not found. Please scan the table QR again.');
+          void this.router.navigate(['/customer/welcome']);
+        },
       });
     }
 

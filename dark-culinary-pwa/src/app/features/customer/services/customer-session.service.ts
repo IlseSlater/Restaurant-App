@@ -159,10 +159,16 @@ export class CustomerSessionService {
         const myOrders = (swb.orders ?? []).filter(
           (o) => o.participantId === myId && (o.status ?? '').toUpperCase() !== 'CANCELLED',
         );
-        const myTotal = myOrders.reduce(
-          (s, o) => s + (typeof o.total === 'number' ? o.total : Number(o.subtotal ?? 0)),
-          0,
-        );
+        const myTotal = myOrders.reduce((s, o) => {
+          const raw =
+            typeof o.total === 'number'
+              ? o.total
+              : typeof o.subtotal === 'number'
+                ? o.subtotal
+                : Number(o.subtotal);
+          const n = Number.isFinite(raw) ? raw : 0;
+          return s + n;
+        }, 0);
         if (myTotal === 0) return of({ allowed: true });
         return this.getPaymentStatus(session.id).pipe(
           map((status) => {

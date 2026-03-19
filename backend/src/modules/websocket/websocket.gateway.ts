@@ -14,7 +14,16 @@ import { Injectable, Logger } from '@nestjs/common';
 @Injectable()
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:4200'],
+    origin: [
+      'http://localhost:4200',
+      'https://localhost:4200',
+      'http://127.0.0.1:4200',
+      'https://127.0.0.1:4200',
+      'https://localhost.localdomain:4200',
+      'https://lvh.me:4200',
+      'https://vite.lvh.me:4200',
+      'https://192.168.50.204:4200',
+    ],
     credentials: true,
   },
 })

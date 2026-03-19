@@ -1,9 +1,9 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subscription, interval } from 'rxjs';
 import { WebSocketService } from '../../../../core/services/websocket.service';
 import { ApiService } from '../../../../core/services/api.service';
 import { CompanyContextService } from '../../../../core/services/company-context.service';
@@ -248,12 +248,14 @@ interface BarBoardItem {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class BarBoardPage implements OnInit {
+export class BarBoardPage implements OnInit, OnDestroy {
   private readonly ws = inject(WebSocketService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ApiService);
   private readonly companyContext = inject(CompanyContextService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly subs = new Subscription();
+  private activeCompanyId = '';
 
   private readonly itemsSubject = new BehaviorSubject<BarBoardItem[]>([]);
   private get items(): BarBoardItem[] {
@@ -277,17 +279,35 @@ export class BarBoardPage implements OnInit {
     this.ws.connect();
     this.ws.joinCompanyRooms(companyGuid, ['bar']);
 
-    this.companyContext.companyId$.subscribe((companyId) => {
+    this.subs.add(this.companyContext.companyId$.subscribe((companyId) => {
       if (!companyId) return;
+      this.activeCompanyId = companyId;
+      // Re-join with resolved context id to avoid route/context mismatch.
+      this.ws.joinCompanyRooms(companyId, ['bar']);
       this.loadOrders(companyId);
-    });
-    if (companyGuid) this.loadOrders(companyGuid);
+    }));
+    if (companyGuid) {
+      this.activeCompanyId = companyGuid;
+      this.loadOrders(companyGuid);
+    }
 
-    this.ws.on<any>('new_order').subscribe(() => this.loadOrders(companyGuid));
-    this.ws.on<any>('order_status_changed').subscribe(() => this.loadOrders(companyGuid));
-    this.ws.on<any>('order_created_bar').subscribe(() => this.loadOrders(companyGuid));
-    this.ws.on<any>('customer_order_created').subscribe(() => this.loadOrders(companyGuid));
-    this.ws.on<any>('item_status_updated').subscribe(() => this.loadOrders(companyGuid));
+    const refreshFromSocket = () => {
+      const id = this.activeCompanyId || companyGuid;
+      if (id) this.loadOrders(id);
+    };
+    this.subs.add(this.ws.on<any>('new_order').subscribe(refreshFromSocket));
+    this.subs.add(this.ws.on<any>('order_status_changed').subscribe(refreshFromSocket));
+    this.subs.add(this.ws.on<any>('order_created_bar').subscribe(refreshFromSocket));
+    this.subs.add(this.ws.on<any>('customer_order_created').subscribe(refreshFromSocket));
+    this.subs.add(this.ws.on<any>('item_status_updated').subscribe(refreshFromSocket));
+
+    // Fallback refresh loop: keeps board fresh if websocket delivery drops.
+    this.subs.add(
+      interval(5000).subscribe(() => {
+        const id = this.activeCompanyId || companyGuid;
+        if (id) this.loadOrders(id);
+      }),
+    );
   }
 
   private loadOrders(companyId: string): void {
@@ -296,7 +316,24 @@ export class BarBoardPage implements OnInit {
       next: (orders) => {
         const now = Date.now();
         const mapped: BarBoardItem[] = [];
-        const beverageCategories = ['beverage', 'beverages', 'drinks', 'beer', 'wine', 'cocktails', 'spirits'];
+        const beverageCategories = [
+          'beverage',
+          'beverages',
+          'drink',
+          'drinks',
+          'beer',
+          'wine',
+          'cocktail',
+          'cocktails',
+          'spirit',
+          'spirits',
+          'coffee',
+          'tea',
+          'juice',
+          'soda',
+          'mocktail',
+          'bar',
+        ];
 
         for (const order of orders ?? []) {
           const orderStatus = (order.status ?? '').toString().toUpperCase();
@@ -309,7 +346,10 @@ export class BarBoardPage implements OnInit {
           const tableNumber = order.table?.number ?? '';
           for (const item of order.items ?? []) {
             const category = (item.menuItem?.category ?? '').toString().toLowerCase();
-            const isBeverage = beverageCategories.some((b) => category.includes(b));
+            const name = (item.menuItem?.name ?? '').toString().toLowerCase();
+            const isBeverage =
+              beverageCategories.some((b) => category.includes(b)) ||
+              ['wine', 'beer', 'cocktail', 'coffee', 'tea', 'juice', 'soda'].some((k) => name.includes(k));
             if (!isBeverage) continue;
 
             const status = (item.status ?? order.status ?? '').toString().toUpperCase();
@@ -363,6 +403,10 @@ export class BarBoardPage implements OnInit {
   isSlaBreached(item: BarBoardItem): boolean {
     const mins = this.minutesSince(item);
     return mins > 10 && item.status === 'PENDING';
+  }
+
+  ngOnDestroy(): void {
+    this.subs.unsubscribe();
   }
 }
 

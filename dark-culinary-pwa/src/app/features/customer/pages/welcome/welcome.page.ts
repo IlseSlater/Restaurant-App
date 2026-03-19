@@ -6,6 +6,7 @@ import {
   OnDestroy,
   signal,
 } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatBottomSheet, MatBottomSheetRef, MAT_BOTTOM_SHEET_DATA } from '@angular/material/bottom-sheet';
 import { MatButtonModule } from '@angular/material/button';
@@ -455,7 +456,17 @@ export class WelcomePage implements OnInit, OnDestroy {
           this.notifications.warn('Please pay your bill before leaving the table.');
         }
       },
-      error: () => this.notifications.error('Could not check bill status. Try again.'),
+      error: (err: unknown) => {
+        const status = err instanceof HttpErrorResponse ? err.status : undefined;
+        if (status === 404) {
+          this.sessionService.clearLocalSession(session.id);
+          this.activeSession.set(null);
+          this.activeSessionTableLabel.set(null);
+          this.notifications.warn('Your session has expired. Please scan the table QR again.');
+          return;
+        }
+        this.notifications.error('Could not check bill status. Try again.');
+      },
     });
   }
 

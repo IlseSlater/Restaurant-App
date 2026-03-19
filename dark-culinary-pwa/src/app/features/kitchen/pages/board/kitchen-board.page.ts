@@ -296,7 +296,24 @@ export class KitchenBoardPage implements OnInit {
       next: (orders) => {
         const now = Date.now();
         const mapped: KitchenBoardItem[] = [];
-        const beverageCategories = ['beverage', 'beverages', 'drinks', 'beer', 'wine', 'cocktails', 'spirits'];
+        const beverageCategories = [
+          'beverage',
+          'beverages',
+          'drink',
+          'drinks',
+          'beer',
+          'wine',
+          'cocktail',
+          'cocktails',
+          'spirit',
+          'spirits',
+          'coffee',
+          'tea',
+          'juice',
+          'soda',
+          'mocktail',
+          'bar',
+        ];
 
         for (const order of orders ?? []) {
           const orderStatus = (order.status ?? '').toString().toUpperCase();
@@ -309,7 +326,10 @@ export class KitchenBoardPage implements OnInit {
           const tableNumber = order.table?.number ?? '';
           for (const item of order.items ?? []) {
             const category = (item.menuItem?.category ?? '').toString().toLowerCase();
-            const isBeverage = beverageCategories.some((b) => category.includes(b));
+            const name = (item.menuItem?.name ?? '').toString().toLowerCase();
+            const isBeverage =
+              beverageCategories.some((b) => category.includes(b)) ||
+              ['wine', 'beer', 'cocktail', 'coffee', 'tea', 'juice', 'soda'].some((k) => name.includes(k));
             if (isBeverage) continue;
 
             const status = (item.status ?? order.status ?? '').toString().toUpperCase();

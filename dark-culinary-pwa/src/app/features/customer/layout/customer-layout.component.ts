@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -191,7 +192,17 @@ export class CustomerLayoutComponent {
           this.notifications.warn('Please pay your bill before leaving the table.');
         }
       },
-      error: () => this.notifications.error('Could not check bill status. Try again.'),
+      error: (err: unknown) => {
+        const status = err instanceof HttpErrorResponse ? err.status : undefined;
+        if (status === 404) {
+          // Most common: stale local session after DB reset/reseed.
+          this.sessionService.clearLocalSession(session.id);
+          this.notifications.warn('Your session has expired. Please scan the table QR again.');
+          void this.router.navigate(['/customer/welcome']);
+          return;
+        }
+        this.notifications.error('Could not check bill status. Try again.');
+      },
     });
   }
 }
