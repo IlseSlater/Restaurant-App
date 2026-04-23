@@ -15,8 +15,11 @@ async function bootstrap() {
       'http://127.0.0.1:4200',
       'https://192.168.50.204:4200',
       'https://127.0.0.1:4200',
+      'https://restaurant-app-kohl-pi.vercel.app',
+      'https://restaurant-kocbw6s8t-ilse-van-zyls-projects.vercel.app',
     ],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
   
