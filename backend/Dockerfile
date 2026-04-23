@@ -5,14 +5,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all deps (build needs Nest CLI/TypeScript from devDependencies)
+RUN npm ci
 
 # Copy source code
 COPY . .
 
 # Build the application
 RUN npm run build
+
+# Keep runtime image lean after build
+RUN npm prune --omit=dev
 
 # Expose port
 EXPOSE 3000
