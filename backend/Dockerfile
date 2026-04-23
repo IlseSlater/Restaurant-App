@@ -11,6 +11,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Ensure Prisma client/enums are generated inside container
+RUN npx prisma generate
+
 # Build the application
 RUN npm run build
 
