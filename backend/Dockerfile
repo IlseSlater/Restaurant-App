@@ -2,6 +2,9 @@ FROM node:20-bookworm-slim
 
 WORKDIR /app
 
+# Prisma needs OpenSSL available to detect/load the correct engine
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+
 # Copy package files
 COPY package*.json ./
 
