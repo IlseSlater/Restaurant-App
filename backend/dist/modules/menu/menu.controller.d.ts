@@ -3,14 +3,14 @@ export declare class MenuController {
     private readonly menuService;
     constructor(menuService: MenuService);
     getAllMenuItems(companyId?: string): Promise<{
-        description: string | null;
         id: string;
-        companyId: string;
         name: string;
+        category: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         price: import("@prisma/client/runtime/library").Decimal;
-        category: string;
         imageUrl: string | null;
         isAvailable: boolean;
         preparationTime: number | null;
@@ -20,14 +20,14 @@ export declare class MenuController {
     }[]>;
     getCategories(): Promise<string[]>;
     getMenuItem(id: string): Promise<{
-        description: string | null;
         id: string;
-        companyId: string;
         name: string;
+        category: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         price: import("@prisma/client/runtime/library").Decimal;
-        category: string;
         imageUrl: string | null;
         isAvailable: boolean;
         preparationTime: number | null;
@@ -36,14 +36,14 @@ export declare class MenuController {
         isBundle: boolean;
     } | null>;
     createMenuItem(createDto: any): Promise<{
-        description: string | null;
         id: string;
-        companyId: string;
         name: string;
+        category: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         price: import("@prisma/client/runtime/library").Decimal;
-        category: string;
         imageUrl: string | null;
         isAvailable: boolean;
         preparationTime: number | null;
@@ -52,14 +52,14 @@ export declare class MenuController {
         isBundle: boolean;
     }>;
     updateMenuItem(id: string, updateDto: any): Promise<{
-        description: string | null;
         id: string;
-        companyId: string;
         name: string;
+        category: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         price: import("@prisma/client/runtime/library").Decimal;
-        category: string;
         imageUrl: string | null;
         isAvailable: boolean;
         preparationTime: number | null;
@@ -68,14 +68,14 @@ export declare class MenuController {
         isBundle: boolean;
     }>;
     deleteMenuItem(id: string): Promise<{
-        description: string | null;
         id: string;
-        companyId: string;
         name: string;
+        category: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         price: import("@prisma/client/runtime/library").Decimal;
-        category: string;
         imageUrl: string | null;
         isAvailable: boolean;
         preparationTime: number | null;

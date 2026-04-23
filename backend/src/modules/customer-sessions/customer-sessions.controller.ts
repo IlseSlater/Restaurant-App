@@ -57,6 +57,19 @@ export class CustomerSessionsController {
     return this.sessionService.endSession(id);
   }
 
+  @Put(':id/move-table')
+  moveSessionToTable(
+    @Param('id') sessionId: string,
+    @Body() body: { tableId: string; currentTableId?: string; companyId?: string },
+  ) {
+    return this.sessionService.moveSessionToTable(
+      sessionId,
+      body?.tableId,
+      body?.currentTableId,
+      body?.companyId,
+    );
+  }
+
   @Get('table/:tableId')
   getSessionsByTable(@Param('tableId') tableId: string) {
     return this.sessionService.getActiveSessionsByTable(tableId);

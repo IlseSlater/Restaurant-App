@@ -26,6 +26,7 @@ import { GlassCardComponent } from '../../../../shared/components/glass-card/gla
 import { take } from 'rxjs';
 
 const QUICK_TABLE_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const SESSION_KEY = 'dark_culinary_customer_session';
 
 @Component({
   selector: 'app-scan-table',
@@ -51,6 +52,20 @@ const QUICK_TABLE_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
             Rejoin my session
           </button>
         </div>
+      }
+
+      @if (pendingTableMove(); as move) {
+        <app-glass-card>
+          <div class="move-card">
+            <p>You already have an active session. Move it to <strong>Table {{ move.tableNumber }}</strong>?</p>
+            <button mat-flat-button color="primary" type="button" (click)="confirmMoveToPendingTable()">
+              Move my session
+            </button>
+            <button mat-button type="button" (click)="startNewSessionInstead()">
+              Start new session instead
+            </button>
+          </div>
+        </app-glass-card>
       }
 
       @if (mode() === 'scan') {
@@ -83,7 +98,7 @@ const QUICK_TABLE_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
             Enter table number instead
           </button>
         </app-glass-card>
-      } @else {
+      } @else if (!rejoinSession()) {
         <app-glass-card>
           <div class="manual">
             <button mat-button type="button" class="toggle-scan" (click)="setMode('scan')">
@@ -128,6 +143,11 @@ const QUICK_TABLE_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
             </button>
           </div>
         </app-glass-card>
+      } @else {
+        <button mat-flat-button color="primary" type="button" class="scan-cta" (click)="setMode('scan')">
+          <mat-icon>qr_code_scanner</mat-icon>
+          Scan Table QR Code
+        </button>
       }
     </div>
   `,
@@ -236,6 +256,17 @@ const QUICK_TABLE_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
       .rejoin-banner button {
         width: 100%;
       }
+      .scan-cta {
+        width: 100%;
+      }
+      .move-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .move-card p {
+        margin: 0;
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -263,6 +294,7 @@ export class ScanTablePage implements OnDestroy {
   readonly processingScan = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly selectedQuickTable = signal<number | null>(null);
+  readonly pendingTableMove = signal<{ tableId: string; tableNumber: number; companyGuid: string } | null>(null);
 
   form = this.fb.group({
     tableNumber: ['', [Validators.required]],
@@ -289,6 +321,28 @@ export class ScanTablePage implements OnDestroy {
     if (modeParam === 'scan' || modeParam === 'manual') {
       this.mode.set(modeParam);
     }
+
+    const moveTableId = this.route.snapshot.queryParamMap.get('moveTableId');
+    const moveTableNumberRaw = this.route.snapshot.queryParamMap.get('moveTableNumber');
+    const companyGuidFromQuery = this.route.snapshot.queryParamMap.get('c');
+    const moveTableNumber = Number(moveTableNumberRaw);
+    const current =
+      this.sessionService.currentSessionSnapshot ??
+      this.storage.get<{ id?: string; tableId?: string; companyId?: string }>(SESSION_KEY);
+    const companyGuid = companyGuidFromQuery ?? current?.companyId ?? null;
+    if (
+      moveTableId &&
+      companyGuid &&
+      Number.isFinite(moveTableNumber) &&
+      current?.id
+    ) {
+      this.pendingTableMove.set({
+        tableId: moveTableId,
+        tableNumber: moveTableNumber,
+        companyGuid,
+      });
+    }
+
     if (this.mode() === 'scan') {
       this.requestCamera();
     }
@@ -353,6 +407,67 @@ export class ScanTablePage implements OnDestroy {
         onProceed();
       },
       error: () => onProceed(),
+    });
+  }
+
+  private maybeMoveExistingSessionToNewTable(
+    targetTableId: string,
+    targetTableNumber: number,
+  ): boolean {
+    const current =
+      this.sessionService.currentSessionSnapshot ??
+      this.storage.get<{ id?: string; tableId?: string }>(SESSION_KEY);
+    if (!current?.id) return false;
+    const companyGuid =
+      this.route.snapshot.queryParamMap.get('c') ??
+      (this.sessionService.currentSessionSnapshot?.companyId ??
+        this.storage.get<{ companyId?: string }>(SESSION_KEY)?.companyId) ??
+      null;
+    if (!companyGuid) return false;
+    this.pendingTableMove.set({ tableId: targetTableId, tableNumber: targetTableNumber, companyGuid });
+    this.errorMessage.set(null);
+    return true;
+  }
+
+  confirmMoveToPendingTable(): void {
+    const move = this.pendingTableMove();
+    const current =
+      this.sessionService.currentSessionSnapshot ??
+      this.storage.get<{ id?: string; tableId?: string; companyId?: string }>(SESSION_KEY);
+    if (!move || !current?.id) {
+      this.pendingTableMove.set(null);
+      return;
+    }
+    this.sessionService
+      .moveSessionToTable(current.id, move.tableId, {
+        currentTableId: current.tableId,
+        companyId: current.companyId ?? move.companyGuid,
+      })
+      .pipe(take(1))
+      .subscribe({
+      next: () => {
+        this.pendingTableMove.set(null);
+        this.notifications.success(`Moved your session to Table ${move.tableNumber}.`);
+        void this.router.navigate(['/customer/menu']);
+      },
+      error: (err) => {
+        const status = Number(err?.status ?? err?.error?.statusCode);
+        const message =
+          status === 404 || status === 405
+            ? 'Table transfer is unavailable right now. Please try again in a moment.'
+            : (err?.error?.message ?? 'Could not move your session to this table.');
+        this.notifications.error(message);
+      },
+    });
+  }
+
+  startNewSessionInstead(): void {
+    const move = this.pendingTableMove();
+    this.pendingTableMove.set(null);
+    if (!move) return;
+    void this.router.navigate(['/customer/register'], {
+      queryParams: { c: move.companyGuid, tableId: move.tableId, t: move.tableNumber },
+      queryParamsHandling: '',
     });
   }
 
@@ -436,6 +551,7 @@ export class ScanTablePage implements OnDestroy {
 
       const companyGuid = url?.searchParams.get('c');
       const tableNumber = url?.searchParams.get('t');
+      const tableIdFromQr = url?.searchParams.get('tableId');
       if (!companyGuid || !tableNumber) {
         this.processingScan.set(false);
         this.errorMessage.set('QR code is not a valid table link. Use manual entry instead.');
@@ -443,83 +559,16 @@ export class ScanTablePage implements OnDestroy {
         this.handlingQr = false;
         return;
       }
-
-      this.api.get<{ id: string; number: number }[]>('tables', { companyId: companyGuid }).subscribe({
-        next: (tables) => {
-          const list = Array.isArray(tables) ? tables : [];
-          const table = list.find(
-            (tb) => String(tb.number) === tableNumber || tb.id === tableNumber,
-          );
-          const tableId = table?.id;
-          if (!tableId) {
-            void this.router.navigate(['/customer/register'], {
-              queryParams: { c: companyGuid, t: tableNumber },
-              queryParamsHandling: '',
-            });
-            this.handlingQr = false;
-            return;
-          }
-          this.checkSameTableUnpaidThenProceed(
-            tableId,
-            () => {
-              this.sessionService.getScanStatus(tableId, companyGuid).subscribe({
-                next: (status) => {
-                  if (status.hasActiveSession && status.sessionId) {
-                    const session = this.sessionService.currentSessionSnapshot;
-                    if (session?.tableId === tableId && session.id === status.sessionId) {
-                      void this.router.navigate(['/customer/menu']);
-                      this.handlingQr = false;
-                      return;
-                    }
-                    const sheetRef = this.bottomSheet.open(JoinTableSheetComponent, {
-                      data: {
-                        tableNumber: status.tableNumber ?? tableNumber,
-                        sessionId: status.sessionId,
-                        participants: status.participants ?? [],
-                      },
-                      panelClass: 'dc-join-table-sheet',
-                    });
-                    sheetRef.afterDismissed().subscribe((join) => {
-                      this.handlingQr = false;
-                      if (join === true) {
-                        void this.router.navigate(['/customer/register'], {
-                          queryParams: { c: companyGuid, t: tableNumber, tableId, sid: status.sessionId },
-                          queryParamsHandling: '',
-                        });
-                      } else {
-                        this.processingScan.set(false);
-                      }
-                    });
-                  } else {
-                    void this.router.navigate(['/customer/register'], {
-                      queryParams: { c: companyGuid, t: tableNumber, tableId },
-                      queryParamsHandling: '',
-                    });
-                    this.handlingQr = false;
-                  }
-                },
-                error: () => {
-                  void this.router.navigate(['/customer/register'], {
-                    queryParams: { c: companyGuid, t: tableNumber, tableId },
-                    queryParamsHandling: '',
-                  });
-                  this.handlingQr = false;
-                },
-              });
-            },
-            () => {
-              this.processingScan.set(false);
-              this.handlingQr = false;
-            },
-          );
+      // QR already carries route context; navigate directly and let welcome/register resolve table and session flow.
+      void this.router.navigate(['/customer/welcome'], {
+        queryParams: {
+          c: companyGuid,
+          t: tableNumber,
+          ...(tableIdFromQr ? { tableId: tableIdFromQr } : {}),
         },
-        error: () => {
-          this.processingScan.set(false);
-          this.errorMessage.set("We can't find that table from the QR. Please enter the table number manually.");
-          this.mode.set('manual');
-          this.handlingQr = false;
-        },
+        queryParamsHandling: '',
       });
+      this.handlingQr = false;
     });
   }
 
@@ -592,6 +641,9 @@ export class ScanTablePage implements OnDestroy {
                     }
                   });
                 } else {
+                  if (this.maybeMoveExistingSessionToNewTable(table.id, table.number)) {
+                    return;
+                  }
                   void this.router.navigate(['/customer/register'], {
                     queryParams: { c: companyGuid, tableId: table.id, t: table.number },
                     queryParamsHandling: '',

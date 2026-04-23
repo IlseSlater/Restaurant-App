@@ -6,10 +6,10 @@ export declare class AnalyticsController {
     getAnalyticsOverview(companyId: string, startDate?: string, endDate?: string): Promise<AnalyticsOverviewDto>;
     getRealtimeMetrics(companyId: string): Promise<RealtimeMetricsDto>;
     getTopItems(companyId: string, limit?: string, startDate?: string, endDate?: string): Promise<TopSellingItemDto[]>;
-    getGeneralAnalytics(companyId?: string): Promise<AnalyticsOverviewDto | {
+    getGeneralAnalytics(companyId?: string): Promise<{
         today: string;
         total: number;
-    }>;
+    } | AnalyticsOverviewDto>;
     getRevenue(): Promise<{
         today: string;
         total: number;

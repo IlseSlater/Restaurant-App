@@ -14,11 +14,11 @@ export declare class WaiterCallsService {
         table: {
             number: number;
             id: string;
-            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            qrCode: string;
+            companyId: string;
             status: import(".prisma/client").$Enums.TableStatus;
+            qrCode: string;
             waiterId: string | null;
         };
         customerSession: {
@@ -26,8 +26,8 @@ export declare class WaiterCallsService {
             companyId: string;
             isActive: boolean;
             tableId: string;
-            customerName: string;
             phoneNumber: string | null;
+            customerName: string;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -41,26 +41,26 @@ export declare class WaiterCallsService {
         };
     } & {
         id: string;
-        companyId: string;
         createdAt: Date;
-        status: string;
+        companyId: string;
+        message: string | null;
+        resolvedAt: Date | null;
         tableId: string;
+        status: string;
         customerSessionId: string;
         callType: string;
-        message: string | null;
         acknowledgedAt: Date | null;
         acknowledgedBy: string | null;
-        resolvedAt: Date | null;
     }>;
     acknowledgeCall(callId: string, acknowledgedBy: string): Promise<{
         table: {
             number: number;
             id: string;
-            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            qrCode: string;
+            companyId: string;
             status: import(".prisma/client").$Enums.TableStatus;
+            qrCode: string;
             waiterId: string | null;
         };
         customerSession: {
@@ -68,8 +68,8 @@ export declare class WaiterCallsService {
             companyId: string;
             isActive: boolean;
             tableId: string;
-            customerName: string;
             phoneNumber: string | null;
+            customerName: string;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -83,26 +83,26 @@ export declare class WaiterCallsService {
         };
     } & {
         id: string;
-        companyId: string;
         createdAt: Date;
-        status: string;
+        companyId: string;
+        message: string | null;
+        resolvedAt: Date | null;
         tableId: string;
+        status: string;
         customerSessionId: string;
         callType: string;
-        message: string | null;
         acknowledgedAt: Date | null;
         acknowledgedBy: string | null;
-        resolvedAt: Date | null;
     }>;
     resolveCall(callId: string): Promise<{
         table: {
             number: number;
             id: string;
-            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            qrCode: string;
+            companyId: string;
             status: import(".prisma/client").$Enums.TableStatus;
+            qrCode: string;
             waiterId: string | null;
         };
         customerSession: {
@@ -110,8 +110,8 @@ export declare class WaiterCallsService {
             companyId: string;
             isActive: boolean;
             tableId: string;
-            customerName: string;
             phoneNumber: string | null;
+            customerName: string;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -125,16 +125,16 @@ export declare class WaiterCallsService {
         };
     } & {
         id: string;
-        companyId: string;
         createdAt: Date;
-        status: string;
+        companyId: string;
+        message: string | null;
+        resolvedAt: Date | null;
         tableId: string;
+        status: string;
         customerSessionId: string;
         callType: string;
-        message: string | null;
         acknowledgedAt: Date | null;
         acknowledgedBy: string | null;
-        resolvedAt: Date | null;
     }>;
     getCallsByTable(tableId: string): Promise<({
         customerSession: {
@@ -142,8 +142,8 @@ export declare class WaiterCallsService {
             companyId: string;
             isActive: boolean;
             tableId: string;
-            customerName: string;
             phoneNumber: string | null;
+            customerName: string;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -157,26 +157,26 @@ export declare class WaiterCallsService {
         };
     } & {
         id: string;
-        companyId: string;
         createdAt: Date;
-        status: string;
+        companyId: string;
+        message: string | null;
+        resolvedAt: Date | null;
         tableId: string;
+        status: string;
         customerSessionId: string;
         callType: string;
-        message: string | null;
         acknowledgedAt: Date | null;
         acknowledgedBy: string | null;
-        resolvedAt: Date | null;
     })[]>;
     getPendingCalls(companyId?: string, type?: string): Promise<({
         table: {
             number: number;
             id: string;
-            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            qrCode: string;
+            companyId: string;
             status: import(".prisma/client").$Enums.TableStatus;
+            qrCode: string;
             waiterId: string | null;
         };
         customerSession: {
@@ -184,8 +184,8 @@ export declare class WaiterCallsService {
             companyId: string;
             isActive: boolean;
             tableId: string;
-            customerName: string;
             phoneNumber: string | null;
+            customerName: string;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -199,15 +199,15 @@ export declare class WaiterCallsService {
         };
     } & {
         id: string;
-        companyId: string;
         createdAt: Date;
-        status: string;
+        companyId: string;
+        message: string | null;
+        resolvedAt: Date | null;
         tableId: string;
+        status: string;
         customerSessionId: string;
         callType: string;
-        message: string | null;
         acknowledgedAt: Date | null;
         acknowledgedBy: string | null;
-        resolvedAt: Date | null;
     })[]>;
 }

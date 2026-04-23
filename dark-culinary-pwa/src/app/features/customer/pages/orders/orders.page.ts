@@ -193,9 +193,13 @@ export class OrdersPage implements OnInit, OnDestroy {
       const list = Array.isArray(orders) ? orders : [];
       const notCancelled = list.filter((o) => this.getEffectiveOrderStatus(o) !== 'CANCELLED');
       if (tab === 'active') {
-        return notCancelled.filter((o) => !TERMINAL_STATUSES.includes(this.getEffectiveOrderStatus(o)));
+        return notCancelled
+          .filter((o) => !TERMINAL_STATUSES.includes(this.getEffectiveOrderStatus(o)))
+          .sort((a, b) => this.orderTimestamp(a) - this.orderTimestamp(b));
       }
-      return notCancelled.filter((o) => TERMINAL_STATUSES.includes(this.getEffectiveOrderStatus(o)));
+      return notCancelled
+        .filter((o) => TERMINAL_STATUSES.includes(this.getEffectiveOrderStatus(o)))
+        .sort((a, b) => this.orderTimestamp(a) - this.orderTimestamp(b));
     }),
   );
 
@@ -210,6 +214,17 @@ export class OrdersPage implements OnInit, OnDestroy {
     if (s === 'PREPARING' || s === 'CONFIRMED') return 'restaurant';
     if (s === 'READY') return 'notifications_active';
     return 'check_circle';
+  }
+
+  private orderTimestamp(order: unknown): number {
+    const createdAt = (order as { createdAt?: unknown })?.createdAt;
+    if (createdAt instanceof Date) return createdAt.getTime();
+    if (typeof createdAt === 'number') return Number.isFinite(createdAt) ? createdAt : 0;
+    if (typeof createdAt === 'string') {
+      const t = Date.parse(createdAt);
+      return Number.isFinite(t) ? t : 0;
+    }
+    return 0;
   }
 
   ngOnInit(): void {

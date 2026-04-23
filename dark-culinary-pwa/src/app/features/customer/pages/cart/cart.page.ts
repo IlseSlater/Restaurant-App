@@ -34,6 +34,8 @@ const SERVICE_FEE_OPTIONS = [0, 10, 15, 18, 20];
       <header class="cart-header">
         <app-top-app-bar
           title="Your order"
+          [brandName]="companyName()"
+          [brandLogo]="companyLogo()"
           [showBack]="true"
           [glass]="true"
           (back)="goBack()"
@@ -239,6 +241,8 @@ export class CartPage implements OnInit {
   readonly total$ = this.cart.total$;
   readonly activeSpecials$ = this.cartWatcher.activeSpecials$;
   readonly placing = signal(false);
+  readonly companyName = signal('');
+  readonly companyLogo = signal<string | null>(null);
 
   applySpecial(special: ActiveSpecial): void {
     this.cartWatcher.applySpecial(special);
@@ -246,6 +250,15 @@ export class CartPage implements OnInit {
 
   ngOnInit(): void {
     this.pendingOrder.trySync();
+    const session = this.sessionService.currentSessionSnapshot;
+    if (session?.companyId) {
+      this.api.get<{ name?: string; logo?: string | null }>(`companies/${session.companyId}`).subscribe({
+        next: (company) => {
+          this.companyName.set(company?.name ?? '');
+          this.companyLogo.set(company?.logo ?? null);
+        },
+      });
+    }
   }
 
   goBack(): void {

@@ -28,8 +28,13 @@ interface KitchenBoardItem {
   template: `
     <div class="board">
       <h1 class="dc-title">
+        @if (companyLogo) {
+          <img [src]="companyLogo" [alt]="companyName || 'Company'" class="brand-logo" />
+        } @else {
+          <span class="brand-fallback"><mat-icon>storefront</mat-icon></span>
+        }
         <mat-icon>restaurant</mat-icon>
-        Kitchen
+        {{ companyName ? (companyName + ' — Kitchen') : 'Kitchen' }}
       </h1>
 
       <div class="columns">
@@ -164,6 +169,28 @@ interface KitchenBoardItem {
         width: 1.5rem;
         height: 1.5rem;
       }
+      .brand-logo,
+      .brand-fallback {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+      }
+      .brand-logo {
+        object-fit: cover;
+        border: 1px solid var(--border-subtle);
+      }
+      .brand-fallback {
+        background: var(--accent-primary-soft);
+        color: var(--accent-primary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .brand-fallback mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
       .dc-heading {
         display: flex;
         align-items: center;
@@ -254,6 +281,8 @@ export class KitchenBoardPage implements OnInit {
   private readonly api = inject(ApiService);
   private readonly companyContext = inject(CompanyContextService);
   private readonly cdr = inject(ChangeDetectorRef);
+  companyName = '';
+  companyLogo: string | null = null;
 
   private readonly itemsSubject = new BehaviorSubject<KitchenBoardItem[]>([]);
   private get items(): KitchenBoardItem[] {
@@ -281,6 +310,11 @@ export class KitchenBoardPage implements OnInit {
       if (!companyId) return;
       this.loadOrders(companyId);
     });
+    this.companyContext.currentCompany$.subscribe((company) => {
+      this.companyName = company?.name ?? '';
+      this.companyLogo = company?.logo ?? null;
+      this.cdr.markForCheck();
+    });
     if (companyGuid) this.loadOrders(companyGuid);
 
     this.ws.on<any>('new_order').subscribe(() => this.loadOrders(companyGuid));
@@ -296,7 +330,24 @@ export class KitchenBoardPage implements OnInit {
       next: (orders) => {
         const now = Date.now();
         const mapped: KitchenBoardItem[] = [];
-        const beverageCategories = ['beverage', 'beverages', 'drinks', 'beer', 'wine', 'cocktails', 'spirits'];
+        const beverageCategories = [
+          'beverage',
+          'beverages',
+          'drink',
+          'drinks',
+          'beer',
+          'wine',
+          'cocktail',
+          'cocktails',
+          'spirit',
+          'spirits',
+          'coffee',
+          'tea',
+          'juice',
+          'soda',
+          'mocktail',
+          'bar',
+        ];
 
         for (const order of orders ?? []) {
           const orderStatus = (order.status ?? '').toString().toUpperCase();
@@ -309,7 +360,10 @@ export class KitchenBoardPage implements OnInit {
           const tableNumber = order.table?.number ?? '';
           for (const item of order.items ?? []) {
             const category = (item.menuItem?.category ?? '').toString().toLowerCase();
-            const isBeverage = beverageCategories.some((b) => category.includes(b));
+            const name = (item.menuItem?.name ?? '').toString().toLowerCase();
+            const isBeverage =
+              beverageCategories.some((b) => category.includes(b)) ||
+              ['wine', 'beer', 'cocktail', 'coffee', 'tea', 'juice', 'soda'].some((k) => name.includes(k));
             if (isBeverage) continue;
 
             const status = (item.status ?? order.status ?? '').toString().toUpperCase();

@@ -28,6 +28,17 @@ export interface TopAppBarAction {
           <mat-icon>arrow_back</mat-icon>
         </button>
       }
+      @if (brandLogo || brandName) {
+        <div class="brand-wrap" [attr.aria-label]="brandName || 'Company brand'">
+          @if (brandLogo) {
+            <img [src]="brandLogo" [alt]="brandName || 'Company logo'" class="brand-logo" />
+          } @else {
+            <div class="brand-fallback" aria-hidden="true">
+              <mat-icon>storefront</mat-icon>
+            </div>
+          }
+        </div>
+      }
       <h1 class="title">{{ title }}</h1>
       <div class="spacer"></div>
       @for (action of actions; track action.icon + (action.id ?? '')) {
@@ -74,12 +85,41 @@ export interface TopAppBarAction {
         flex: 0 0 0.5rem;
         min-width: 0;
       }
+      .brand-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .brand-logo,
+      .brand-fallback {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+      }
+      .brand-logo {
+        object-fit: cover;
+        border: 1px solid var(--border-subtle);
+      }
+      .brand-fallback {
+        background: var(--accent-primary-soft);
+        color: var(--accent-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .brand-fallback .mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TopAppBarComponent {
   @Input() title = '';
+  @Input() brandName?: string | null;
+  @Input() brandLogo?: string | null;
   @Input() showBack = false;
   @Input() actions: TopAppBarAction[] = [];
 

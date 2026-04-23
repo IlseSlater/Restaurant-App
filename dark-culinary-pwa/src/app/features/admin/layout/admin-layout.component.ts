@@ -377,6 +377,7 @@ export class AdminLayoutComponent implements OnInit {
     { path: 'analytics', label: 'Analytics', icon: 'analytics' },
     { path: 'inventory', label: 'Inventory', icon: 'inventory_2' },
     { path: 'specials', label: 'Specials', icon: 'local_offer' },
+    { path: 'brand-kit', label: 'Brand Kit', icon: 'style' },
   ];
 
   readonly pageTitle = computed(() => {
@@ -388,6 +389,7 @@ export class AdminLayoutComponent implements OnInit {
     if (url.endsWith('/analytics') || url.includes('/analytics')) return 'Analytics';
     if (url.endsWith('/inventory') || url.includes('/inventory')) return 'Inventory';
     if (url.endsWith('/specials') || url.includes('/specials')) return 'Specials';
+    if (url.endsWith('/brand-kit') || url.includes('/brand-kit')) return 'Brand Kit';
     return 'Dashboard';
   });
 

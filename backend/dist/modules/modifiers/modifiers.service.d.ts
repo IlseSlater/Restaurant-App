@@ -56,9 +56,9 @@ export declare class ModifiersService {
     constructor(prisma: PrismaService, webSocketGateway: RestaurantWebSocketGateway);
     createGroup(dto: CreateModifierGroupDto): Promise<{
         options: {
-            description: string | null;
             id: string;
             name: string;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             imageUrl: string | null;
@@ -70,12 +70,12 @@ export declare class ModifiersService {
             modifierGroupId: string;
         }[];
     } & {
-        description: string | null;
         id: string;
-        companyId: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         isRequired: boolean;
         sortOrder: number;
         selectionType: import(".prisma/client").$Enums.SelectionType;
@@ -84,9 +84,9 @@ export declare class ModifiersService {
     }>;
     findAllGroups(companyId: string): Promise<({
         options: {
-            description: string | null;
             id: string;
             name: string;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             imageUrl: string | null;
@@ -98,12 +98,12 @@ export declare class ModifiersService {
             modifierGroupId: string;
         }[];
     } & {
-        description: string | null;
         id: string;
-        companyId: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         isRequired: boolean;
         sortOrder: number;
         selectionType: import(".prisma/client").$Enums.SelectionType;
@@ -112,9 +112,9 @@ export declare class ModifiersService {
     })[]>;
     findGroupById(id: string): Promise<{
         options: {
-            description: string | null;
             id: string;
             name: string;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             imageUrl: string | null;
@@ -126,12 +126,12 @@ export declare class ModifiersService {
             modifierGroupId: string;
         }[];
     } & {
-        description: string | null;
         id: string;
-        companyId: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         isRequired: boolean;
         sortOrder: number;
         selectionType: import(".prisma/client").$Enums.SelectionType;
@@ -140,9 +140,9 @@ export declare class ModifiersService {
     }>;
     updateGroup(id: string, dto: UpdateModifierGroupDto): Promise<{
         options: {
-            description: string | null;
             id: string;
             name: string;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             imageUrl: string | null;
@@ -154,12 +154,12 @@ export declare class ModifiersService {
             modifierGroupId: string;
         }[];
     } & {
-        description: string | null;
         id: string;
-        companyId: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         isRequired: boolean;
         sortOrder: number;
         selectionType: import(".prisma/client").$Enums.SelectionType;
@@ -167,12 +167,12 @@ export declare class ModifiersService {
         maxSelections: number | null;
     }>;
     deleteGroup(id: string): Promise<{
-        description: string | null;
         id: string;
-        companyId: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
+        companyId: string;
         isRequired: boolean;
         sortOrder: number;
         selectionType: import(".prisma/client").$Enums.SelectionType;
@@ -180,9 +180,9 @@ export declare class ModifiersService {
         maxSelections: number | null;
     }>;
     addOption(groupId: string, dto: CreateModifierOptionDto): Promise<{
-        description: string | null;
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         imageUrl: string | null;
@@ -194,9 +194,9 @@ export declare class ModifiersService {
         modifierGroupId: string;
     }>;
     updateOption(id: string, dto: Partial<CreateModifierOptionDto>): Promise<{
-        description: string | null;
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         imageUrl: string | null;
@@ -208,9 +208,9 @@ export declare class ModifiersService {
         modifierGroupId: string;
     }>;
     deleteOption(id: string): Promise<{
-        description: string | null;
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         imageUrl: string | null;
@@ -224,9 +224,9 @@ export declare class ModifiersService {
     linkModifierGroupToMenuItem(menuItemId: string, dto: LinkModifierGroupDto): Promise<{
         modifierGroup: {
             options: {
-                description: string | null;
                 id: string;
                 name: string;
+                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
                 imageUrl: string | null;
@@ -238,12 +238,12 @@ export declare class ModifiersService {
                 modifierGroupId: string;
             }[];
         } & {
-            description: string | null;
             id: string;
-            companyId: string;
             name: string;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
+            companyId: string;
             isRequired: boolean;
             sortOrder: number;
             selectionType: import(".prisma/client").$Enums.SelectionType;
@@ -278,9 +278,9 @@ export declare class ModifiersService {
             overrideMin: number | undefined;
             overrideMax: number | undefined;
             options: {
-                description: string | null;
                 id: string;
                 name: string;
+                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
                 imageUrl: string | null;
@@ -291,12 +291,12 @@ export declare class ModifiersService {
                 visualType: string | null;
                 modifierGroupId: string;
             }[];
-            description: string | null;
             id: string;
-            companyId: string;
             name: string;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
+            companyId: string;
             isRequired: boolean;
             sortOrder: number;
             selectionType: import(".prisma/client").$Enums.SelectionType;
@@ -315,14 +315,14 @@ export declare class ModifiersService {
     createBundleSlot(menuItemId: string, dto: CreateBundleSlotDto): Promise<({
         allowedItems: ({
             menuItem: {
-                description: string | null;
                 id: string;
-                companyId: string;
                 name: string;
+                category: string;
+                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
+                companyId: string;
                 price: import("@prisma/client/runtime/library").Decimal;
-                category: string;
                 imageUrl: string | null;
                 isAvailable: boolean;
                 preparationTime: number | null;
@@ -338,9 +338,9 @@ export declare class ModifiersService {
             bundleSlotId: string;
         })[];
     } & {
-        description: string | null;
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         menuItemId: string;
@@ -350,14 +350,14 @@ export declare class ModifiersService {
     updateBundleSlot(slotId: string, dto: Partial<CreateBundleSlotDto>): Promise<{
         allowedItems: ({
             menuItem: {
-                description: string | null;
                 id: string;
-                companyId: string;
                 name: string;
+                category: string;
+                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
+                companyId: string;
                 price: import("@prisma/client/runtime/library").Decimal;
-                category: string;
                 imageUrl: string | null;
                 isAvailable: boolean;
                 preparationTime: number | null;
@@ -373,9 +373,9 @@ export declare class ModifiersService {
             bundleSlotId: string;
         })[];
     } & {
-        description: string | null;
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         menuItemId: string;
@@ -383,9 +383,9 @@ export declare class ModifiersService {
         sortOrder: number;
     }>;
     deleteBundleSlot(slotId: string): Promise<{
-        description: string | null;
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         menuItemId: string;
