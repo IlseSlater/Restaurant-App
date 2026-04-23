@@ -4,33 +4,33 @@ export declare class TablesController {
     constructor(tablesService: TablesService);
     getAllTables(companyId?: string): Promise<{
         number: number;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         companyId: string;
         status: import(".prisma/client").$Enums.TableStatus;
-        qrCode: string;
         waiterId: string | null;
+        id: string;
+        qrCode: string;
+        createdAt: Date;
+        updatedAt: Date;
     }[]>;
     getTable(id: string): Promise<{
         number: number;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         companyId: string;
         status: import(".prisma/client").$Enums.TableStatus;
-        qrCode: string;
         waiterId: string | null;
+        id: string;
+        qrCode: string;
+        createdAt: Date;
+        updatedAt: Date;
     } | null>;
     getTableByQRCode(qrCode: string): Promise<{
         number: number;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         companyId: string;
         status: import(".prisma/client").$Enums.TableStatus;
-        qrCode: string;
         waiterId: string | null;
+        id: string;
+        qrCode: string;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     createTable(createDto: {
         number: number;
@@ -39,47 +39,47 @@ export declare class TablesController {
         status?: string;
     }): Promise<{
         number: number;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         companyId: string;
         status: import(".prisma/client").$Enums.TableStatus;
-        qrCode: string;
         waiterId: string | null;
+        id: string;
+        qrCode: string;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     updateTable(id: string, updateDto: any): Promise<{
         number: number;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         companyId: string;
         status: import(".prisma/client").$Enums.TableStatus;
-        qrCode: string;
         waiterId: string | null;
+        id: string;
+        qrCode: string;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     updateTableStatus(id: string, statusDto: {
         status: string;
     }): Promise<{
         number: number;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         companyId: string;
         status: import(".prisma/client").$Enums.TableStatus;
-        qrCode: string;
         waiterId: string | null;
+        id: string;
+        qrCode: string;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     assignWaiter(id: string, assignDto: {
         waiterId: string;
     }): Promise<{
         number: number;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         companyId: string;
         status: import(".prisma/client").$Enums.TableStatus;
-        qrCode: string;
         waiterId: string | null;
+        id: string;
+        qrCode: string;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     clearTable(id: string, force?: string): Promise<{
         table: any;
@@ -87,13 +87,13 @@ export declare class TablesController {
     }>;
     deleteTable(id: string): Promise<{
         number: number;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         companyId: string;
         status: import(".prisma/client").$Enums.TableStatus;
-        qrCode: string;
         waiterId: string | null;
+        id: string;
+        qrCode: string;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     generateQRData(companyId: string, tableId: string): Promise<{
         companyId: string;
