@@ -8,6 +8,7 @@ import { AdminStaffPage } from './pages/staff/admin-staff.page';
 import { AdminAnalyticsPage } from './pages/analytics/admin-analytics.page';
 import { AdminInventoryPage } from './pages/inventory/admin-inventory.page';
 import { AdminSpecialsPage } from './pages/specials/admin-specials.page';
+import { AdminBrandKitPage } from './pages/brand-kit/admin-brand-kit.page';
 import { staffAuthGuard } from '../../core/guards/staff-auth.guard';
 import { companyGuard } from '../../core/guards/company.guard';
 
@@ -25,6 +26,7 @@ export const adminRoutes: Routes = [
       { path: 'analytics', component: AdminAnalyticsPage },
       { path: 'inventory', component: AdminInventoryPage },
       { path: 'specials', component: AdminSpecialsPage },
+      { path: 'brand-kit', component: AdminBrandKitPage },
     ],
   },
 ];

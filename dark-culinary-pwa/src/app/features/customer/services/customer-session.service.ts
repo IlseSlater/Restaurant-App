@@ -48,6 +48,46 @@ function withParticipantId(session: CustomerSession & { participants?: { id: str
   return { ...session, participantId, participants: session.participants } as CustomerSession;
 }
 
+function normalizeStoredSession(raw: CustomerSession | null): CustomerSession | null {
+  if (!raw) return null;
+
+  const id = typeof raw.id === 'string' ? raw.id.trim() : '';
+  const tableId = typeof raw.tableId === 'string' ? raw.tableId.trim() : '';
+  const companyId = typeof raw.companyId === 'string' ? raw.companyId.trim() : '';
+  if (!id || !tableId || !companyId) return null;
+
+  const customerName =
+    typeof raw.customerName === 'string' && raw.customerName.trim().length > 0
+      ? raw.customerName.trim()
+      : 'Guest';
+
+  const participantId =
+    typeof raw.participantId === 'string' && raw.participantId.trim().length > 0
+      ? raw.participantId.trim()
+      : undefined;
+
+  const participants = Array.isArray(raw.participants)
+    ? raw.participants.filter(
+        (p): p is { id: string; displayName: string; isCreator: boolean } =>
+          !!p &&
+          typeof p.id === 'string' &&
+          p.id.trim().length > 0 &&
+          typeof p.displayName === 'string' &&
+          p.displayName.trim().length > 0,
+      )
+    : undefined;
+
+  return {
+    ...raw,
+    id,
+    tableId,
+    companyId,
+    customerName,
+    participantId,
+    participants,
+  };
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -86,12 +126,14 @@ export class CustomerSessionService {
       .pipe(
         map(withParticipantId),
         tap((session) => {
-          this.storage.set(SESSION_KEY, session);
-          this.sessionSubject.next(session);
+          const normalized = normalizeStoredSession(session);
+          if (!normalized) return;
+          this.storage.set(SESSION_KEY, normalized);
+          this.sessionSubject.next(normalized);
           this.ws.connect();
-          this.ws.joinRoom(`customer-${session.id}`);
-          if (session.tableId) this.ws.joinRoom(`table-${session.tableId}`);
-          if (session.companyId) this.ws.joinCompanyRooms(session.companyId, ['customer']);
+          this.ws.joinRoom(`customer-${normalized.id}`);
+          if (normalized.tableId) this.ws.joinRoom(`table-${normalized.tableId}`);
+          if (normalized.companyId) this.ws.joinCompanyRooms(normalized.companyId, ['customer']);
         }),
       );
   }
@@ -128,12 +170,47 @@ export class CustomerSessionService {
           ),
         ),
         tap((session) => {
-          this.storage.set(SESSION_KEY, session);
-          this.sessionSubject.next(session);
+          const normalized = normalizeStoredSession(session);
+          if (!normalized) return;
+          this.storage.set(SESSION_KEY, normalized);
+          this.sessionSubject.next(normalized);
           this.ws.connect();
-          this.ws.joinRoom(`customer-${session.id}`);
-          if (session.tableId) this.ws.joinRoom(`table-${session.tableId}`);
-          if (session.companyId) this.ws.joinCompanyRooms(session.companyId, ['customer']);
+          this.ws.joinRoom(`customer-${normalized.id}`);
+          if (normalized.tableId) this.ws.joinRoom(`table-${normalized.tableId}`);
+          if (normalized.companyId) this.ws.joinCompanyRooms(normalized.companyId, ['customer']);
+        }),
+      );
+  }
+
+  moveSessionToTable(
+    sessionId: string,
+    tableId: string,
+    hints?: { currentTableId?: string; companyId?: string },
+  ) {
+    return this.api
+      .put<CustomerSession & { participants?: { id: string; displayName: string; isCreator: boolean }[] }>(
+        `customer-sessions/${sessionId}/move-table`,
+        {
+          tableId,
+          currentTableId: hints?.currentTableId,
+          companyId: hints?.companyId,
+        },
+      )
+      .pipe(
+        map(withParticipantId),
+        tap((session) => {
+          const normalized = normalizeStoredSession(session);
+          if (!normalized) return;
+          const previous = this.sessionSubject.value;
+          if (previous?.tableId && previous.tableId !== normalized.tableId) {
+            this.ws.leaveRoom(`table-${previous.tableId}`);
+          }
+          this.storage.set(SESSION_KEY, normalized);
+          this.sessionSubject.next(normalized);
+          this.ws.connect();
+          this.ws.joinRoom(`customer-${normalized.id}`);
+          if (normalized.tableId) this.ws.joinRoom(`table-${normalized.tableId}`);
+          if (normalized.companyId) this.ws.joinCompanyRooms(normalized.companyId, ['customer']);
         }),
       );
   }
@@ -215,7 +292,14 @@ export class CustomerSessionService {
   }
 
   private loadFromStorage(): CustomerSession | null {
-    return this.storage.get<CustomerSession | null>(SESSION_KEY);
+    const stored = this.storage.get<CustomerSession | null>(SESSION_KEY);
+    const normalized = normalizeStoredSession(stored);
+    if (!normalized && stored) {
+      this.storage.remove(SESSION_KEY);
+    } else if (normalized && JSON.stringify(stored) !== JSON.stringify(normalized)) {
+      this.storage.set(SESSION_KEY, normalized);
+    }
+    return normalized;
   }
 }
 

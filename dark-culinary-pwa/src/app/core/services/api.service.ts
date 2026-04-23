@@ -92,10 +92,10 @@ export interface UpdateSpecialDto {
 
 /** When opened from another device (e.g. phone), use that host for API so requests hit your dev machine. */
 function getApiBaseUrl(): string {
-  const fromEnv = environment.apiUrl ?? 'http://localhost:3000';
-  if (typeof window === 'undefined') return fromEnv;
+  const fromEnv = (environment.apiUrl ?? '').trim();
+  if (fromEnv) return fromEnv;
+  if (typeof window === 'undefined') return 'http://localhost:3000';
   const host = window.location.hostname;
-  if (host === 'localhost' || host === '127.0.0.1') return fromEnv;
   return `http://${host}:3000`;
 }
 
@@ -293,6 +293,8 @@ export class ApiService {
   private buildUrl(path: string): string {
     const trimmedBase = this.baseUrl.replace(/\/+$/, '');
     const trimmedPath = path.replace(/^\/+/, '');
+    if (!trimmedBase) return `/api/${trimmedPath}`;
+    if (trimmedBase.endsWith('/api')) return `${trimmedBase}/${trimmedPath}`;
     return `${trimmedBase}/api/${trimmedPath}`;
   }
 

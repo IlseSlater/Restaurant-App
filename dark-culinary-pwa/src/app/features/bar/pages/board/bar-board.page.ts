@@ -28,8 +28,13 @@ interface BarBoardItem {
   template: `
     <div class="board">
       <h1 class="dc-title">
+        @if (companyLogo) {
+          <img [src]="companyLogo" [alt]="companyName || 'Company'" class="brand-logo" />
+        } @else {
+          <span class="brand-fallback"><mat-icon>storefront</mat-icon></span>
+        }
         <mat-icon>local_bar</mat-icon>
-        Bar
+        {{ companyName ? (companyName + ' — Bar') : 'Bar' }}
       </h1>
 
       <div class="columns">
@@ -164,6 +169,28 @@ interface BarBoardItem {
         width: 1.5rem;
         height: 1.5rem;
       }
+      .brand-logo,
+      .brand-fallback {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+      }
+      .brand-logo {
+        object-fit: cover;
+        border: 1px solid var(--border-subtle);
+      }
+      .brand-fallback {
+        background: var(--accent-primary-soft);
+        color: var(--accent-primary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .brand-fallback mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
       .dc-heading {
         display: flex;
         align-items: center;
@@ -256,6 +283,8 @@ export class BarBoardPage implements OnInit, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly subs = new Subscription();
   private activeCompanyId = '';
+  companyName = '';
+  companyLogo: string | null = null;
 
   private readonly itemsSubject = new BehaviorSubject<BarBoardItem[]>([]);
   private get items(): BarBoardItem[] {
@@ -285,6 +314,11 @@ export class BarBoardPage implements OnInit, OnDestroy {
       // Re-join with resolved context id to avoid route/context mismatch.
       this.ws.joinCompanyRooms(companyId, ['bar']);
       this.loadOrders(companyId);
+    }));
+    this.subs.add(this.companyContext.currentCompany$.subscribe((company) => {
+      this.companyName = company?.name ?? '';
+      this.companyLogo = company?.logo ?? null;
+      this.cdr.markForCheck();
     }));
     if (companyGuid) {
       this.activeCompanyId = companyGuid;

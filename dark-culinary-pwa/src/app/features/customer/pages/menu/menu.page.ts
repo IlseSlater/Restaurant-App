@@ -5,6 +5,7 @@ import {
   signal,
   computed,
 } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
@@ -51,6 +52,8 @@ import { AppCurrencyPipe } from '../../../../core/pipes/app-currency.pipe';
       <div class="menu-header">
         <app-top-app-bar
           [title]="appBarTitle()"
+          [brandName]="companyName()"
+          [brandLogo]="companyLogo()"
           [showBack]="true"
           [actions]="menuActions()"
           (back)="goBack()"
@@ -297,8 +300,21 @@ export class MenuPage {
   private readonly api = inject(ApiService);
   private readonly bottomSheet = inject(MatBottomSheet);
 
+  private recoverFromInvalidSession(error?: unknown): void {
+    const status = error instanceof HttpErrorResponse ? error.status : undefined;
+    // Invalid/stale session cases should self-heal by clearing local state.
+    if (status === undefined || status === 401 || status === 403 || status === 404) {
+      const session = this.sessionService.currentSessionSnapshot;
+      this.sessionService.clearLocalSession(session?.id);
+      this.notifications.warn('Your session is invalid or expired. Please scan the table QR again.');
+      void this.router.navigate(['/customer/welcome']);
+    }
+  }
+
   readonly loading = signal(true);
   readonly appBarTitle = signal('Menu');
+  readonly companyName = signal('');
+  readonly companyLogo = signal<string | null>(null);
   readonly selectedCategory = signal('ALL');
   readonly searchQuery = signal('');
   readonly categories = signal<string[]>(['ALL']);
@@ -317,18 +333,34 @@ export class MenuPage {
   constructor() {
     this.menuService.menu$.subscribe((items) => {
       this.loading.set(false);
+      if (!items?.length) {
+        const session = this.sessionService.currentSessionSnapshot;
+        this.sessionService.clearLocalSession(session?.id);
+        void this.router.navigate(['/customer/welcome']);
+        return;
+      }
       if (items?.length) {
         this.categories.set(this.menuService.getCategories(items));
       }
+    }, (err) => {
+      this.loading.set(false);
+      this.recoverFromInvalidSession(err);
     });
     this.cartService.items$.subscribe((items) => {
       this.cartItemCount.set(items.reduce((s, i) => s + i.quantity, 0));
     });
     this.sessionService.currentSession$.subscribe((session) => {
       if (session?.companyId) {
-        this.api.get<{ name?: string }>(`companies/${session.companyId}`).subscribe({
-          next: (c) => this.appBarTitle.set(c?.name ?? 'Menu'),
+        this.api.get<{ name?: string; logo?: string | null }>(`companies/${session.companyId}`).subscribe({
+          next: (c) => {
+            this.appBarTitle.set(c?.name ?? 'Menu');
+            this.companyName.set(c?.name ?? '');
+            this.companyLogo.set(c?.logo ?? null);
+          },
+          error: (err) => this.recoverFromInvalidSession(err),
         });
+      } else {
+        this.recoverFromInvalidSession();
       }
     });
   }

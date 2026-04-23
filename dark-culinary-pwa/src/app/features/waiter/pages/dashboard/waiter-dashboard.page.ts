@@ -83,6 +83,8 @@ interface TableSessionDetail {
   template: `
     <app-top-app-bar
       [title]="(appBarTitle$ | async) ?? 'Waiter Dashboard'"
+      [brandName]="companyName()"
+      [brandLogo]="companyLogo()"
       [showBack]="false"
       [actions]="appBarActions"
       (actionClick)="onActionClick($event)"
@@ -966,6 +968,8 @@ export class WaiterDashboardPage implements OnInit, OnDestroy {
 
   private readonly drawerItemsTabSignal = signal<'active' | 'history'>('active');
   readonly drawerItemsTab = this.drawerItemsTabSignal.asReadonly();
+  readonly companyName = signal<string>('');
+  readonly companyLogo = signal<string | null>(null);
 
   // Items in PENDING / PREPARING / READY are considered "active" for the waiter
   private readonly activeItemStatuses = new Set(['PENDING', 'PREPARING', 'READY', 'COLLECTED']);
@@ -1144,6 +1148,12 @@ export class WaiterDashboardPage implements OnInit, OnDestroy {
 
     this.companyData.triggerTablesRefresh();
     this.companyData.triggerOrdersRefresh();
+    this.subs.add(
+      this.companyContext.currentCompany$.subscribe((company) => {
+        this.companyName.set(company?.name ?? '');
+        this.companyLogo.set(company?.logo ?? null);
+      }),
+    );
 
     this.loadPendingCalls(companyGuid);
     this.bindWebSocketHandlers();

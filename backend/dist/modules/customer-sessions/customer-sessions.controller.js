@@ -40,6 +40,9 @@ let CustomerSessionsController = class CustomerSessionsController {
     endSession(id) {
         return this.sessionService.endSession(id);
     }
+    moveSessionToTable(sessionId, body) {
+        return this.sessionService.moveSessionToTable(sessionId, body?.tableId, body?.currentTableId, body?.companyId);
+    }
     getSessionsByTable(tableId) {
         return this.sessionService.getActiveSessionsByTable(tableId);
     }
@@ -111,6 +114,14 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CustomerSessionsController.prototype, "endSession", null);
+__decorate([
+    (0, common_1.Put)(':id/move-table'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], CustomerSessionsController.prototype, "moveSessionToTable", null);
 __decorate([
     (0, common_1.Get)('table/:tableId'),
     __param(0, (0, common_1.Param)('tableId')),

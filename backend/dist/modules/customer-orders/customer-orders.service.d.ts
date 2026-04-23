@@ -41,21 +41,25 @@ export declare class CustomerOrdersService {
     private categorizeOrderItems;
     getOrdersBySession(sessionId: string): Promise<{
         status: string;
+        participant: {
+            id: string;
+            displayName: string;
+        } | null;
         items: ({
             menuItem: {
                 id: string;
                 name: string;
-                category: string;
-                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
                 companyId: string;
                 price: import("@prisma/client/runtime/library").Decimal;
+                isShareable: boolean;
+                maxClaimants: number | null;
+                description: string | null;
+                category: string;
                 imageUrl: string | null;
                 isAvailable: boolean;
                 preparationTime: number | null;
-                isShareable: boolean;
-                maxClaimants: number | null;
                 isBundle: boolean;
             };
             modifiers: {
@@ -72,10 +76,10 @@ export declare class CustomerOrdersService {
                 bundleSlot: {
                     id: string;
                     name: string;
-                    description: string | null;
                     createdAt: Date;
                     updatedAt: Date;
                     menuItemId: string;
+                    description: string | null;
                     isRequired: boolean;
                     sortOrder: number;
                 };
@@ -90,109 +94,47 @@ export declare class CustomerOrdersService {
         } & {
             id: string;
             createdAt: Date;
-            quantity: number;
             status: string;
+            customerOrderId: string;
             menuItemId: string;
+            quantity: number;
+            specialInstructions: string | null;
             price: import("@prisma/client/runtime/library").Decimal;
             isShareable: boolean;
             maxClaimants: number;
-            customerOrderId: string;
-            specialInstructions: string | null;
         })[];
-        participant: {
-            id: string;
-            displayName: string;
-        } | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
         tableId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
         participantId: string | null;
         subtotal: import("@prisma/client/runtime/library").Decimal;
         serviceFee: import("@prisma/client/runtime/library").Decimal;
         serviceFeePercentage: import("@prisma/client/runtime/library").Decimal;
+        total: import("@prisma/client/runtime/library").Decimal;
         paymentStatus: string;
     }[]>;
     getOrder(orderId: string): Promise<{
         status: string;
-        items: ({
-            menuItem: {
-                id: string;
-                name: string;
-                category: string;
-                description: string | null;
-                createdAt: Date;
-                updatedAt: Date;
-                companyId: string;
-                price: import("@prisma/client/runtime/library").Decimal;
-                imageUrl: string | null;
-                isAvailable: boolean;
-                preparationTime: number | null;
-                isShareable: boolean;
-                maxClaimants: number | null;
-                isBundle: boolean;
-            };
-            modifiers: {
-                id: string;
-                createdAt: Date;
-                customerOrderItemId: string;
-                modifierOptionId: string;
-                modifierGroupName: string;
-                optionName: string;
-                priceAdjustment: import("@prisma/client/runtime/library").Decimal;
-                bundleChoiceId: string | null;
-            }[];
-            bundleChoices: ({
-                bundleSlot: {
-                    id: string;
-                    name: string;
-                    description: string | null;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    menuItemId: string;
-                    isRequired: boolean;
-                    sortOrder: number;
-                };
-            } & {
-                id: string;
-                createdAt: Date;
-                customerOrderItemId: string;
-                bundleSlotId: string;
-                chosenMenuItemId: string;
-                chosenItemName: string;
-            })[];
-        } & {
-            id: string;
-            createdAt: Date;
-            quantity: number;
-            status: string;
-            menuItemId: string;
-            price: import("@prisma/client/runtime/library").Decimal;
-            isShareable: boolean;
-            maxClaimants: number;
-            customerOrderId: string;
-            specialInstructions: string | null;
-        })[];
         table: {
             number: number;
             id: string;
             createdAt: Date;
             updatedAt: Date;
             companyId: string;
-            status: import(".prisma/client").$Enums.TableStatus;
             qrCode: string;
+            status: import(".prisma/client").$Enums.TableStatus;
             waiterId: string | null;
         };
         customerSession: {
             id: string;
-            companyId: string;
             isActive: boolean;
+            companyId: string;
             tableId: string;
-            phoneNumber: string | null;
             customerName: string;
+            phoneNumber: string | null;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -204,56 +146,85 @@ export declare class CustomerOrdersService {
             billPaidAt: Date | null;
             expiryReason: string | null;
         };
+        items: ({
+            menuItem: {
+                id: string;
+                name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                companyId: string;
+                price: import("@prisma/client/runtime/library").Decimal;
+                isShareable: boolean;
+                maxClaimants: number | null;
+                description: string | null;
+                category: string;
+                imageUrl: string | null;
+                isAvailable: boolean;
+                preparationTime: number | null;
+                isBundle: boolean;
+            };
+            modifiers: {
+                id: string;
+                createdAt: Date;
+                customerOrderItemId: string;
+                modifierOptionId: string;
+                modifierGroupName: string;
+                optionName: string;
+                priceAdjustment: import("@prisma/client/runtime/library").Decimal;
+                bundleChoiceId: string | null;
+            }[];
+            bundleChoices: ({
+                bundleSlot: {
+                    id: string;
+                    name: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    menuItemId: string;
+                    description: string | null;
+                    isRequired: boolean;
+                    sortOrder: number;
+                };
+            } & {
+                id: string;
+                createdAt: Date;
+                customerOrderItemId: string;
+                bundleSlotId: string;
+                chosenMenuItemId: string;
+                chosenItemName: string;
+            })[];
+        } & {
+            id: string;
+            createdAt: Date;
+            status: string;
+            customerOrderId: string;
+            menuItemId: string;
+            quantity: number;
+            specialInstructions: string | null;
+            price: import("@prisma/client/runtime/library").Decimal;
+            isShareable: boolean;
+            maxClaimants: number;
+        })[];
         id: string;
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
         tableId: string;
-        total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
         participantId: string | null;
         subtotal: import("@prisma/client/runtime/library").Decimal;
         serviceFee: import("@prisma/client/runtime/library").Decimal;
         serviceFeePercentage: import("@prisma/client/runtime/library").Decimal;
+        total: import("@prisma/client/runtime/library").Decimal;
         paymentStatus: string;
     } | null>;
     updateOrderStatus(orderId: string, status: string): Promise<{
-        items: ({
-            menuItem: {
-                id: string;
-                name: string;
-                category: string;
-                description: string | null;
-                createdAt: Date;
-                updatedAt: Date;
-                companyId: string;
-                price: import("@prisma/client/runtime/library").Decimal;
-                imageUrl: string | null;
-                isAvailable: boolean;
-                preparationTime: number | null;
-                isShareable: boolean;
-                maxClaimants: number | null;
-                isBundle: boolean;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            quantity: number;
-            status: string;
-            menuItemId: string;
-            price: import("@prisma/client/runtime/library").Decimal;
-            isShareable: boolean;
-            maxClaimants: number;
-            customerOrderId: string;
-            specialInstructions: string | null;
-        })[];
         customerSession: {
             id: string;
-            companyId: string;
             isActive: boolean;
+            companyId: string;
             tableId: string;
-            phoneNumber: string | null;
             customerName: string;
+            phoneNumber: string | null;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -265,58 +236,58 @@ export declare class CustomerOrdersService {
             billPaidAt: Date | null;
             expiryReason: string | null;
         };
+        items: ({
+            menuItem: {
+                id: string;
+                name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                companyId: string;
+                price: import("@prisma/client/runtime/library").Decimal;
+                isShareable: boolean;
+                maxClaimants: number | null;
+                description: string | null;
+                category: string;
+                imageUrl: string | null;
+                isAvailable: boolean;
+                preparationTime: number | null;
+                isBundle: boolean;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            status: string;
+            customerOrderId: string;
+            menuItemId: string;
+            quantity: number;
+            specialInstructions: string | null;
+            price: import("@prisma/client/runtime/library").Decimal;
+            isShareable: boolean;
+            maxClaimants: number;
+        })[];
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
         tableId: string;
-        status: string;
-        total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
+        status: string;
         participantId: string | null;
         subtotal: import("@prisma/client/runtime/library").Decimal;
         serviceFee: import("@prisma/client/runtime/library").Decimal;
         serviceFeePercentage: import("@prisma/client/runtime/library").Decimal;
+        total: import("@prisma/client/runtime/library").Decimal;
         paymentStatus: string;
     }>;
     updateItemStatus(orderId: string, itemId: string, status: string): Promise<{
-        items: ({
-            menuItem: {
-                id: string;
-                name: string;
-                category: string;
-                description: string | null;
-                createdAt: Date;
-                updatedAt: Date;
-                companyId: string;
-                price: import("@prisma/client/runtime/library").Decimal;
-                imageUrl: string | null;
-                isAvailable: boolean;
-                preparationTime: number | null;
-                isShareable: boolean;
-                maxClaimants: number | null;
-                isBundle: boolean;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            quantity: number;
-            status: string;
-            menuItemId: string;
-            price: import("@prisma/client/runtime/library").Decimal;
-            isShareable: boolean;
-            maxClaimants: number;
-            customerOrderId: string;
-            specialInstructions: string | null;
-        })[];
         customerSession: {
             id: string;
-            companyId: string;
             isActive: boolean;
+            companyId: string;
             tableId: string;
-            phoneNumber: string | null;
             customerName: string;
+            phoneNumber: string | null;
             dietaryPreferences: string[];
             allergies: string[];
             sessionStart: Date;
@@ -328,19 +299,48 @@ export declare class CustomerOrdersService {
             billPaidAt: Date | null;
             expiryReason: string | null;
         };
+        items: ({
+            menuItem: {
+                id: string;
+                name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                companyId: string;
+                price: import("@prisma/client/runtime/library").Decimal;
+                isShareable: boolean;
+                maxClaimants: number | null;
+                description: string | null;
+                category: string;
+                imageUrl: string | null;
+                isAvailable: boolean;
+                preparationTime: number | null;
+                isBundle: boolean;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            status: string;
+            customerOrderId: string;
+            menuItemId: string;
+            quantity: number;
+            specialInstructions: string | null;
+            price: import("@prisma/client/runtime/library").Decimal;
+            isShareable: boolean;
+            maxClaimants: number;
+        })[];
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
         tableId: string;
-        status: string;
-        total: import("@prisma/client/runtime/library").Decimal;
         customerSessionId: string;
+        status: string;
         participantId: string | null;
         subtotal: import("@prisma/client/runtime/library").Decimal;
         serviceFee: import("@prisma/client/runtime/library").Decimal;
         serviceFeePercentage: import("@prisma/client/runtime/library").Decimal;
+        total: import("@prisma/client/runtime/library").Decimal;
         paymentStatus: string;
     }>;
     private deriveOrderStatusFromItems;

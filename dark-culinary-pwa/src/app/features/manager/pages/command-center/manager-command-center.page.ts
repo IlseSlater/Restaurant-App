@@ -105,6 +105,8 @@ function countActiveItemsByStation(orders: OrderWithItems[]): { kitchen: number;
   template: `
     <app-top-app-bar
       [title]="appBarTitle"
+      [brandName]="companyName()"
+      [brandLogo]="companyLogo()"
       [showBack]="false"
       [actions]="appBarActions"
       (actionClick)="onActionClick($event)"
@@ -678,6 +680,8 @@ export class ManagerCommandCenterPage implements OnInit {
   readonly panelOpen = computed(() => this.panelTableId() !== null);
 
   appBarTitle = '';
+  readonly companyName = signal('');
+  readonly companyLogo = signal<string | null>(null);
   appBarActions: TopAppBarAction[] = [];
 
   readonly escalations$ = this.companyData.escalations$;
@@ -770,6 +774,8 @@ export class ManagerCommandCenterPage implements OnInit {
   ngOnInit(): void {
     this.companyContext.currentCompany$.subscribe((c) => {
       this.appBarTitle = c ? `${c.name} — Command Center` : 'Command Center';
+      this.companyName.set(c?.name ?? '');
+      this.companyLogo.set(c?.logo ?? null);
       this.appBarActions = [
         { icon: 'notifications', label: 'Escalations', badge: 0, id: 'escalations' },
         { icon: 'logout', label: 'Logout', id: 'logout' },

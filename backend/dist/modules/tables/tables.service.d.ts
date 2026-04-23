@@ -12,8 +12,8 @@ export declare class TablesService {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: import(".prisma/client").$Enums.TableStatus;
         qrCode: string;
+        status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
     }[]>;
     getTable(id: string): Promise<{
@@ -22,8 +22,8 @@ export declare class TablesService {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: import(".prisma/client").$Enums.TableStatus;
         qrCode: string;
+        status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
     } | null>;
     getTableByQRCode(qrCode: string): Promise<{
@@ -32,8 +32,8 @@ export declare class TablesService {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: import(".prisma/client").$Enums.TableStatus;
         qrCode: string;
+        status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
     }>;
     createTable(createDto: {
@@ -47,8 +47,8 @@ export declare class TablesService {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: import(".prisma/client").$Enums.TableStatus;
         qrCode: string;
+        status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
     }>;
     updateTable(id: string, updateDto: any): Promise<{
@@ -57,8 +57,8 @@ export declare class TablesService {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: import(".prisma/client").$Enums.TableStatus;
         qrCode: string;
+        status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
     }>;
     updateTableStatus(id: string, status: string): Promise<{
@@ -67,8 +67,8 @@ export declare class TablesService {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: import(".prisma/client").$Enums.TableStatus;
         qrCode: string;
+        status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
     }>;
     assignWaiter(tableId: string, waiterId: string | null): Promise<{
@@ -77,8 +77,8 @@ export declare class TablesService {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: import(".prisma/client").$Enums.TableStatus;
         qrCode: string;
+        status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
     }>;
     deleteTable(id: string): Promise<{
@@ -87,8 +87,8 @@ export declare class TablesService {
         createdAt: Date;
         updatedAt: Date;
         companyId: string;
-        status: import(".prisma/client").$Enums.TableStatus;
         qrCode: string;
+        status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
     }>;
     clearTable(tableId: string, force?: boolean): Promise<{

@@ -18,35 +18,45 @@ export declare class CustomerSessionsService {
         };
     }): Promise<any>;
     getSession(sessionId: string): Promise<({
+        table: {
+            number: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            companyId: string;
+            qrCode: string;
+            status: import(".prisma/client").$Enums.TableStatus;
+            waiterId: string | null;
+        };
         orders: ({
             items: ({
                 menuItem: {
                     id: string;
                     name: string;
-                    category: string;
-                    description: string | null;
                     createdAt: Date;
                     updatedAt: Date;
                     companyId: string;
                     price: Prisma.Decimal;
+                    isShareable: boolean;
+                    maxClaimants: number | null;
+                    description: string | null;
+                    category: string;
                     imageUrl: string | null;
                     isAvailable: boolean;
                     preparationTime: number | null;
-                    isShareable: boolean;
-                    maxClaimants: number | null;
                     isBundle: boolean;
                 };
             } & {
                 id: string;
                 createdAt: Date;
-                quantity: number;
                 status: string;
+                customerOrderId: string;
                 menuItemId: string;
+                quantity: number;
+                specialInstructions: string | null;
                 price: Prisma.Decimal;
                 isShareable: boolean;
                 maxClaimants: number;
-                customerOrderId: string;
-                specialInstructions: string | null;
             })[];
         } & {
             id: string;
@@ -54,25 +64,15 @@ export declare class CustomerSessionsService {
             updatedAt: Date;
             companyId: string;
             tableId: string;
-            status: string;
-            total: Prisma.Decimal;
             customerSessionId: string;
+            status: string;
             participantId: string | null;
             subtotal: Prisma.Decimal;
             serviceFee: Prisma.Decimal;
             serviceFeePercentage: Prisma.Decimal;
+            total: Prisma.Decimal;
             paymentStatus: string;
         })[];
-        table: {
-            number: number;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            companyId: string;
-            status: import(".prisma/client").$Enums.TableStatus;
-            qrCode: string;
-            waiterId: string | null;
-        };
         participants: {
             id: string;
             displayName: string;
@@ -80,11 +80,11 @@ export declare class CustomerSessionsService {
         }[];
     } & {
         id: string;
-        companyId: string;
         isActive: boolean;
+        companyId: string;
         tableId: string;
-        phoneNumber: string | null;
         customerName: string;
+        phoneNumber: string | null;
         dietaryPreferences: string[];
         allergies: string[];
         sessionStart: Date;
@@ -135,11 +135,11 @@ export declare class CustomerSessionsService {
     private formatJoinResponse;
     updateActivity(sessionId: string): Promise<{
         id: string;
-        companyId: string;
         isActive: boolean;
+        companyId: string;
         tableId: string;
-        phoneNumber: string | null;
         customerName: string;
+        phoneNumber: string | null;
         dietaryPreferences: string[];
         allergies: string[];
         sessionStart: Date;
@@ -153,11 +153,11 @@ export declare class CustomerSessionsService {
     }>;
     endSession(sessionId: string): Promise<{
         id: string;
-        companyId: string;
         isActive: boolean;
+        companyId: string;
         tableId: string;
-        phoneNumber: string | null;
         customerName: string;
+        phoneNumber: string | null;
         dietaryPreferences: string[];
         allergies: string[];
         sessionStart: Date;
@@ -169,36 +169,74 @@ export declare class CustomerSessionsService {
         billPaidAt: Date | null;
         expiryReason: string | null;
     }>;
+    moveSessionToTable(sessionId: string, targetTableId: string, currentTableId?: string, companyIdHint?: string): Promise<({
+        table: {
+            number: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            companyId: string;
+            qrCode: string;
+            status: import(".prisma/client").$Enums.TableStatus;
+            waiterId: string | null;
+        };
+        participants: {
+            id: string;
+            createdAt: Date;
+            phoneNumber: string | null;
+            customerSessionId: string;
+            displayName: string;
+            isCreator: boolean;
+            deviceId: string | null;
+        }[];
+    } & {
+        id: string;
+        isActive: boolean;
+        companyId: string;
+        tableId: string;
+        customerName: string;
+        phoneNumber: string | null;
+        dietaryPreferences: string[];
+        allergies: string[];
+        sessionStart: Date;
+        sessionEnd: Date | null;
+        lastActivity: Date;
+        scanLocation: Prisma.JsonValue | null;
+        expectedLocation: Prisma.JsonValue | null;
+        billPaidBy: string | null;
+        billPaidAt: Date | null;
+        expiryReason: string | null;
+    }) | null>;
     getActiveSessionsByTable(tableId: string): Promise<({
         orders: ({
             items: ({
                 menuItem: {
                     id: string;
                     name: string;
-                    category: string;
-                    description: string | null;
                     createdAt: Date;
                     updatedAt: Date;
                     companyId: string;
                     price: Prisma.Decimal;
+                    isShareable: boolean;
+                    maxClaimants: number | null;
+                    description: string | null;
+                    category: string;
                     imageUrl: string | null;
                     isAvailable: boolean;
                     preparationTime: number | null;
-                    isShareable: boolean;
-                    maxClaimants: number | null;
                     isBundle: boolean;
                 };
             } & {
                 id: string;
                 createdAt: Date;
-                quantity: number;
                 status: string;
+                customerOrderId: string;
                 menuItemId: string;
+                quantity: number;
+                specialInstructions: string | null;
                 price: Prisma.Decimal;
                 isShareable: boolean;
                 maxClaimants: number;
-                customerOrderId: string;
-                specialInstructions: string | null;
             })[];
         } & {
             id: string;
@@ -206,22 +244,22 @@ export declare class CustomerSessionsService {
             updatedAt: Date;
             companyId: string;
             tableId: string;
-            status: string;
-            total: Prisma.Decimal;
             customerSessionId: string;
+            status: string;
             participantId: string | null;
             subtotal: Prisma.Decimal;
             serviceFee: Prisma.Decimal;
             serviceFeePercentage: Prisma.Decimal;
+            total: Prisma.Decimal;
             paymentStatus: string;
         })[];
     } & {
         id: string;
-        companyId: string;
         isActive: boolean;
+        companyId: string;
         tableId: string;
-        phoneNumber: string | null;
         customerName: string;
+        phoneNumber: string | null;
         dietaryPreferences: string[];
         allergies: string[];
         sessionStart: Date;
@@ -234,35 +272,45 @@ export declare class CustomerSessionsService {
         expiryReason: string | null;
     })[]>;
     getActiveSessionByPhone(phoneNumber: string): Promise<({
+        table: {
+            number: number;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            companyId: string;
+            qrCode: string;
+            status: import(".prisma/client").$Enums.TableStatus;
+            waiterId: string | null;
+        };
         orders: ({
             items: ({
                 menuItem: {
                     id: string;
                     name: string;
-                    category: string;
-                    description: string | null;
                     createdAt: Date;
                     updatedAt: Date;
                     companyId: string;
                     price: Prisma.Decimal;
+                    isShareable: boolean;
+                    maxClaimants: number | null;
+                    description: string | null;
+                    category: string;
                     imageUrl: string | null;
                     isAvailable: boolean;
                     preparationTime: number | null;
-                    isShareable: boolean;
-                    maxClaimants: number | null;
                     isBundle: boolean;
                 };
             } & {
                 id: string;
                 createdAt: Date;
-                quantity: number;
                 status: string;
+                customerOrderId: string;
                 menuItemId: string;
+                quantity: number;
+                specialInstructions: string | null;
                 price: Prisma.Decimal;
                 isShareable: boolean;
                 maxClaimants: number;
-                customerOrderId: string;
-                specialInstructions: string | null;
             })[];
         } & {
             id: string;
@@ -270,32 +318,22 @@ export declare class CustomerSessionsService {
             updatedAt: Date;
             companyId: string;
             tableId: string;
-            status: string;
-            total: Prisma.Decimal;
             customerSessionId: string;
+            status: string;
             participantId: string | null;
             subtotal: Prisma.Decimal;
             serviceFee: Prisma.Decimal;
             serviceFeePercentage: Prisma.Decimal;
+            total: Prisma.Decimal;
             paymentStatus: string;
         })[];
-        table: {
-            number: number;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            companyId: string;
-            status: import(".prisma/client").$Enums.TableStatus;
-            qrCode: string;
-            waiterId: string | null;
-        };
     } & {
         id: string;
-        companyId: string;
         isActive: boolean;
+        companyId: string;
         tableId: string;
-        phoneNumber: string | null;
         customerName: string;
+        phoneNumber: string | null;
         dietaryPreferences: string[];
         allergies: string[];
         sessionStart: Date;

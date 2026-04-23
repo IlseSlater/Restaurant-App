@@ -302,6 +302,83 @@ export class CustomerSessionsService {
     return session;
   }
 
+  async moveSessionToTable(
+    sessionId: string,
+    targetTableId: string,
+    currentTableId?: string,
+    companyIdHint?: string,
+  ) {
+    const nextTableId = targetTableId?.trim();
+    if (!nextTableId) {
+      throw new NotFoundException('Target table is required');
+    }
+
+    let session = await this.prisma.customerSession.findUnique({
+      where: { id: sessionId },
+      select: { id: true, isActive: true, tableId: true, companyId: true },
+    });
+    if (!session || !session.isActive) {
+      const fallbackTableId = currentTableId?.trim();
+      const fallbackCompanyId = companyIdHint?.trim();
+      if (fallbackTableId && fallbackCompanyId) {
+        const recovered = await this.prisma.customerSession.findFirst({
+          where: {
+            tableId: fallbackTableId,
+            companyId: fallbackCompanyId,
+            isActive: true,
+          },
+          orderBy: { lastActivity: 'desc' },
+          select: { id: true, isActive: true, tableId: true, companyId: true },
+        });
+        if (recovered?.isActive) {
+          session = recovered;
+        }
+      }
+    }
+    if (!session || !session.isActive) {
+      throw new NotFoundException('Session not found or no longer active');
+    }
+
+    if (session.tableId === nextTableId) {
+      return this.prisma.customerSession.findUnique({
+        where: { id: sessionId },
+        include: { table: true, participants: true },
+      });
+    }
+
+    const table = await this.prisma.table.findUnique({
+      where: { id: nextTableId },
+      select: { id: true, companyId: true },
+    });
+    if (!table) {
+      throw new NotFoundException('Target table not found');
+    }
+    if (table.companyId !== session.companyId) {
+      throw new ConflictException('Cannot move session to a table from a different restaurant');
+    }
+
+    const blocking = await this.prisma.customerSession.findFirst({
+      where: {
+        tableId: nextTableId,
+        isActive: true,
+        id: { not: session.id },
+      },
+      select: { id: true },
+    });
+    if (blocking) {
+      throw new ConflictException('Target table already has an active session');
+    }
+
+    return this.prisma.customerSession.update({
+      where: { id: session.id },
+      data: {
+        tableId: nextTableId,
+        lastActivity: new Date(),
+      },
+      include: { table: true, participants: true },
+    });
+  }
+
   async getActiveSessionsByTable(tableId: string) {
     return this.prisma.customerSession.findMany({
       where: {

@@ -174,26 +174,35 @@ type LoginMode = 'pin' | 'email';
       .brand-top {
         display: flex;
         align-items: center;
-        gap: 0.9rem;
+        gap: 1.15rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
       }
       .brand-logo {
-        width: 56px;
-        height: 56px;
-        border-radius: 16px;
+        width: clamp(74px, 9vw, 104px);
+        height: clamp(74px, 9vw, 104px);
+        border-radius: 20px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
       }
       .brand-logo img {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        border-radius: 16px;
+        border-radius: 20px;
       }
       .brand-logo mat-icon {
         color: rgba(255, 255, 255, 0.92);
+        font-size: 2rem;
+        width: 2rem;
+        height: 2rem;
       }
       .brand-name {
         min-width: 0;
@@ -201,13 +210,15 @@ type LoginMode = 'pin' | 'email';
       .company {
         font-weight: 700;
         letter-spacing: -0.01em;
-        font-size: 1.05rem;
-        line-height: 1.15;
+        font-size: clamp(1.35rem, 3vw, 2rem);
+        line-height: 1.08;
+        text-wrap: balance;
+        text-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
       }
       .hint {
         color: rgba(234, 240, 255, 0.72);
-        font-size: 0.9rem;
-        margin-top: 0.15rem;
+        font-size: clamp(0.95rem, 1.6vw, 1.08rem);
+        margin-top: 0.25rem;
       }
       .brand-copy {
         margin-top: clamp(1.4rem, 2.8vw, 3.2rem);

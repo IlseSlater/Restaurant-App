@@ -102,7 +102,7 @@ export class AdminTablesPage implements OnInit {
     if (!this.baseUrl || !this.companyId) {
       return '';
     }
-    return `${this.baseUrl}/customer/welcome?c=${this.companyId}&t=${t.number}`;
+    return `${this.baseUrl}/customer/welcome?c=${this.companyId}&t=${t.number}&tableId=${t.id}`;
   }
 
   private load(): void {

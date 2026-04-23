@@ -187,9 +187,17 @@ export class CustomerLayoutComponent {
       next: (result) => {
         if (result.allowed) {
           this.sessionService.clearLocalSession(session.id);
-          void this.router.navigate(['/customer/welcome']);
+          void this.router.navigate(['/customer/scan-table'], { queryParams: { mode: 'scan' } });
         } else {
-          this.notifications.warn('Please pay your bill before leaving the table.');
+          const goToBill = window.confirm(
+            'You still have an outstanding bill. Press OK to pay now, or Cancel to leave and scan a new table.',
+          );
+          if (goToBill) {
+            void this.router.navigate(['/customer/bill']);
+            return;
+          }
+          this.sessionService.clearLocalSession(session.id);
+          void this.router.navigate(['/customer/scan-table'], { queryParams: { mode: 'scan' } });
         }
       },
       error: (err: unknown) => {

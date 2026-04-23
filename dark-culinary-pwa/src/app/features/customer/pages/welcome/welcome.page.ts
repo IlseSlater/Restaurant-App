@@ -14,12 +14,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../../../core/services/api.service';
 import { CustomerSessionService } from '../../services/customer-session.service';
 import { NotificationService } from '../../../../core/services/notification.service';
+import { StorageService } from '../../../../core/services/storage.service';
 import { JoinTableSheetComponent } from '../../components/join-table-sheet/join-table-sheet.component';
 import { GlassCardComponent } from '../../../../shared/components/glass-card/glass-card.component';
 import { TopAppBarComponent } from '../../../../shared/components/top-app-bar/top-app-bar.component';
 import { PressEffectDirective } from '../../../../shared/directives/press-effect.directive';
 import { Subscription } from 'rxjs';
 import { take } from 'rxjs';
+
+const SESSION_KEY = 'dark_culinary_customer_session';
 
 @Component({
   selector: 'app-about-sheet',
@@ -98,6 +101,8 @@ export class ContinueTableSheetComponent {
       <header class="welcome-header">
         <app-top-app-bar
           [title]="appBarTitle()"
+          [brandName]="companyName()"
+          [brandLogo]="companyLogo()"
           [showBack]="false"
           [glass]="true"
           [actions]="[{ icon: 'info', id: 'about' }]"
@@ -288,9 +293,11 @@ export class WelcomePage implements OnInit, OnDestroy {
   private readonly bottomSheet = inject(MatBottomSheet);
   private readonly sessionService = inject(CustomerSessionService);
   private readonly notifications = inject(NotificationService);
+  private readonly storage = inject(StorageService);
   private sessionSub?: Subscription;
 
   companyName = signal<string>('');
+  companyLogo = signal<string | null>(null);
   appBarTitle = signal<string>('Welcome');
   /** Current session in storage (so we show "previous session" card when they land on welcome). */
   readonly activeSession = signal(this.sessionService.currentSessionSnapshot);
@@ -316,9 +323,10 @@ export class WelcomePage implements OnInit, OnDestroy {
     const c = this.route.snapshot.queryParamMap.get('c');
     const t = this.route.snapshot.queryParamMap.get('t');
     if (c && t) {
-      this.api.get<{ name?: string }>(`companies/${c}`).subscribe({
+      this.api.get<{ name?: string; logo?: string | null }>(`companies/${c}`).subscribe({
         next: (company) => {
           this.companyName.set(company?.name ?? 'the restaurant');
+          this.companyLogo.set(company?.logo ?? null);
           this.appBarTitle.set(`Welcome to ${company?.name ?? 'the restaurant'}`);
           this.openContinueTableSheet(company?.name ?? 'the restaurant', t);
         },
@@ -327,9 +335,10 @@ export class WelcomePage implements OnInit, OnDestroy {
         },
       });
     } else if (c) {
-      this.api.get<{ name?: string }>(`companies/${c}`).subscribe({
+      this.api.get<{ name?: string; logo?: string | null }>(`companies/${c}`).subscribe({
         next: (company) => {
           this.companyName.set(company?.name ?? '');
+          this.companyLogo.set(company?.logo ?? null);
           this.appBarTitle.set(company?.name ? `Welcome to ${company.name}` : 'Welcome');
         },
       });
@@ -337,12 +346,29 @@ export class WelcomePage implements OnInit, OnDestroy {
   }
 
   private proceedToScanStatus(tableId: string, companyGuid: string, tableNumber: string): void {
+    const current =
+      this.sessionService.currentSessionSnapshot ??
+      this.storage.get<{ id?: string; tableId?: string }>(SESSION_KEY);
+    if (current?.id && current.tableId && current.tableId !== tableId) {
+      void this.router.navigate(['/customer/scan-table'], {
+        queryParams: {
+          c: companyGuid,
+          mode: 'manual',
+          moveTableId: tableId,
+          moveTableNumber: String(tableNumber),
+        },
+        queryParamsHandling: '',
+      });
+      return;
+    }
+
     this.sessionService.getScanStatus(tableId, companyGuid).subscribe({
       next: (status) => {
         if (status.hasActiveSession && status.sessionId) {
           const joinRef = this.bottomSheet.open(JoinTableSheetComponent, {
             data: {
               tableNumber: status.tableNumber ?? tableNumber,
+              sessionId: status.sessionId,
               participants: status.participants ?? [],
             },
             panelClass: 'dc-join-table-sheet',
@@ -358,6 +384,23 @@ export class WelcomePage implements OnInit, OnDestroy {
             }
           });
         } else {
+          const current =
+            this.sessionService.currentSessionSnapshot ??
+            this.storage.get<{ id?: string; tableId?: string }>(SESSION_KEY);
+          const parsedTableNumber = Number(status.tableNumber ?? tableNumber);
+          const targetTableLabel = Number.isFinite(parsedTableNumber) ? parsedTableNumber : tableNumber;
+          if (current?.id) {
+            void this.router.navigate(['/customer/scan-table'], {
+              queryParams: {
+                c: companyGuid,
+                mode: 'manual',
+                moveTableId: tableId,
+                moveTableNumber: String(targetTableLabel),
+              },
+              queryParamsHandling: '',
+            });
+            return;
+          }
           void this.router.navigate(['/customer/register'], {
             queryParams: { c: companyGuid, t: tableNumber, tableId },
             queryParamsHandling: '',
@@ -375,12 +418,35 @@ export class WelcomePage implements OnInit, OnDestroy {
 
   private openContinueTableSheet(companyName: string, tableNumber: string): void {
     const companyGuid = this.route.snapshot.queryParamMap.get('c');
+    const tableIdFromQuery = this.route.snapshot.queryParamMap.get('tableId');
     const ref = this.bottomSheet.open(ContinueTableSheetComponent, {
       data: { companyName, tableNumber, companyGuid: companyGuid ?? '' },
       panelClass: 'dc-continue-table-sheet',
     });
     ref.afterDismissed().subscribe((result) => {
       if (result === true && companyGuid) {
+        if (tableIdFromQuery) {
+          const session = this.sessionService.currentSessionSnapshot;
+          if (session?.tableId === tableIdFromQuery) {
+            this.sessionService.checkCanLeave(session).pipe(take(1)).subscribe({
+              next: (leaveResult) => {
+                if (!leaveResult.allowed) {
+                  this.notifications.warn(
+                    'You already have an active session at this table. Please pay your bill first.',
+                  );
+                  void this.router.navigate(['/customer/bill']);
+                  return;
+                }
+                this.proceedToScanStatus(tableIdFromQuery, companyGuid, tableNumber);
+              },
+              error: () => this.proceedToScanStatus(tableIdFromQuery, companyGuid, tableNumber),
+            });
+            return;
+          }
+          this.proceedToScanStatus(tableIdFromQuery, companyGuid, tableNumber);
+          return;
+        }
+
         this.api.get<{ id: string; number: number }[]>(`tables`, { companyId: companyGuid }).subscribe({
           next: (tables) => {
             const list = Array.isArray(tables) ? tables : [];
@@ -453,7 +519,17 @@ export class WelcomePage implements OnInit, OnDestroy {
           this.activeSession.set(null);
           this.activeSessionTableLabel.set(null);
         } else {
-          this.notifications.warn('Please pay your bill before leaving the table.');
+          const goToBill = window.confirm(
+            'You still have an outstanding bill. Press OK to pay now, or Cancel to leave and scan a new table.',
+          );
+          if (goToBill) {
+            void this.router.navigate(['/customer/bill']);
+            return;
+          }
+          this.sessionService.clearLocalSession(session.id);
+          this.activeSession.set(null);
+          this.activeSessionTableLabel.set(null);
+          void this.router.navigate(['/customer/scan-table'], { queryParams: { mode: 'scan' } });
         }
       },
       error: (err: unknown) => {
