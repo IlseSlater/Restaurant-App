@@ -1,14 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { HttpErrorResponse } from '@angular/common/http';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
+import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { MatIconModule } from '@angular/material/icon';
 import { AsyncPipe } from '@angular/common';
 import { combineLatest, map } from 'rxjs';
 import { CustomerCartService } from '../services/customer-cart.service';
 import { CustomerSessionService } from '../services/customer-session.service';
+import { CustomerProfileService } from '../services/customer-profile.service';
 import { CustomerEscalationService } from '../services/customer-escalation.service';
-import { NotificationService } from '../../../core/services/notification.service';
 import { FloatingCartChipComponent } from '../../../shared/components/floating-cart-chip/floating-cart-chip.component';
 import { SocialActivityFeedComponent } from '../components/social-activity-feed/social-activity-feed.component';
 import { CartWatcherService } from '../services/cart-watcher.service';
@@ -19,7 +18,6 @@ import { CartWatcherService } from '../services/cart-watcher.service';
   imports: [
     RouterOutlet,
     RouterLink,
-    MatButtonModule,
     MatIconModule,
     AsyncPipe,
     FloatingCartChipComponent,
@@ -33,61 +31,80 @@ import { CartWatcherService } from '../services/cart-watcher.service';
       </section>
 
       @if (showBottomNav$ | async) {
-        <div class="bottom-nav-dock">
-          <nav class="bottom-nav glass-nav" aria-label="Customer navigation">
+        <div class="aura-dock-wrap">
+          <div class="aura-dock">
+            <div class="aura-dock__glass" aria-hidden="true">
+              <div class="aura-dock__bar"></div>
+              <div class="aura-dock__cradle"></div>
+            </div>
+
+            <nav class="aura-dock__nav" aria-label="Customer navigation">
+              <a
+                class="aura-dock__item"
+                routerLink="/customer/profile"
+                routerLinkActive="is-active"
+                aria-label="Profile"
+              >
+                <span class="aura-dock__icon-wrap">
+                  @if (profileInitial$ | async; as initial) {
+                    <span class="aura-dock__avatar">{{ initial }}</span>
+                  } @else {
+                    <mat-icon class="aura-dock__icon aura-dock__icon--outlined" fontSet="material-icons-outlined">person</mat-icon>
+                  }
+                </span>
+                <span class="aura-dock__label">Profile</span>
+              </a>
+
+              <a
+                class="aura-dock__item"
+                routerLink="/customer/orders"
+                routerLinkActive="is-active"
+                aria-label="Orders"
+              >
+                <span class="aura-dock__icon-wrap">
+                  <mat-icon class="aura-dock__icon aura-dock__icon--filled">receipt_long</mat-icon>
+                  <mat-icon class="aura-dock__icon aura-dock__icon--outlined" fontSet="material-icons-outlined">receipt_long</mat-icon>
+                </span>
+                <span class="aura-dock__label">Orders</span>
+              </a>
+
+              <span class="aura-dock__fab-slot" aria-hidden="true"></span>
+
+              <a
+                class="aura-dock__item"
+                routerLink="/customer/bill"
+                routerLinkActive="is-active"
+                aria-label="Bill"
+              >
+                <span class="aura-dock__icon-wrap">
+                  <mat-icon class="aura-dock__icon aura-dock__icon--filled">payments</mat-icon>
+                  <mat-icon class="aura-dock__icon aura-dock__icon--outlined" fontSet="material-icons-outlined">payments</mat-icon>
+                </span>
+                <span class="aura-dock__label">Bill</span>
+              </a>
+
+              <button
+                type="button"
+                class="aura-dock__item aura-dock__item--leave"
+                (click)="leaveTable()"
+                aria-label="Leave table"
+              >
+                <span class="aura-dock__icon-wrap">
+                  <mat-icon class="aura-dock__icon aura-dock__icon--outlined" fontSet="material-icons-outlined">exit_to_app</mat-icon>
+                </span>
+                <span class="aura-dock__label">Leave</span>
+              </button>
+            </nav>
+
             <a
-              mat-button
-              class="nav-item"
+              class="aura-dock__fab"
               routerLink="/customer/menu"
-              routerLinkActive="active"
-              aria-label="Menu"
+              routerLinkActive="fab-active"
+              aria-label="Quick menu"
             >
               <mat-icon>restaurant_menu</mat-icon>
-              <span>Menu</span>
             </a>
-            <a
-              mat-button
-              class="nav-item"
-              routerLink="/customer/orders"
-              routerLinkActive="active"
-              aria-label="Orders"
-            >
-              <mat-icon>receipt_long</mat-icon>
-              <span>Orders</span>
-            </a>
-
-            <span class="nav-fab-slot" aria-hidden="true"></span>
-
-            <a
-              mat-button
-              class="nav-item"
-              routerLink="/customer/bill"
-              routerLinkActive="active"
-              aria-label="Bill"
-            >
-              <mat-icon>receipt</mat-icon>
-              <span>Bill</span>
-            </a>
-            <button
-              mat-button
-              type="button"
-              class="nav-item"
-              (click)="leaveTable()"
-              aria-label="Leave table"
-            >
-              <mat-icon>exit_to_app</mat-icon>
-              <span>Leave</span>
-            </button>
-          </nav>
-
-          <a
-            class="nav-fab"
-            routerLink="/customer/menu"
-            routerLinkActive="fab-active"
-            aria-label="Open menu"
-          >
-            <mat-icon>restaurant_menu</mat-icon>
-          </a>
+          </div>
         </div>
       }
 
@@ -115,100 +132,213 @@ import { CartWatcherService } from '../services/cart-watcher.service';
         flex: 1 1 0;
         min-height: 0;
         padding: var(--space-4);
-        padding-bottom: calc(var(--nav-dock-height) + var(--nav-fab-size) * 0.5 + 1.5rem);
+        padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
       }
-      .bottom-nav-dock {
+      .aura-dock-wrap {
         position: fixed;
-        bottom: max(0.75rem, env(safe-area-inset-bottom));
-        left: 1rem;
-        right: 1rem;
+        left: 0;
+        right: 0;
+        bottom: 0;
         z-index: 100;
-        height: var(--nav-dock-height);
+        padding: 0 1rem max(0.65rem, env(safe-area-inset-bottom));
         pointer-events: none;
       }
-      .bottom-nav {
-        position: absolute;
-        inset: 0;
-        display: grid;
-        grid-template-columns: 1fr 1fr 3.5rem 1fr 1fr;
-        align-items: center;
-        padding: 0 0.35rem;
+      .aura-dock {
+        position: relative;
+        max-width: 26rem;
+        margin: 0 auto;
+        height: 4.25rem;
+        padding-top: 1.35rem;
         pointer-events: auto;
       }
-      .nav-fab-slot {
-        width: var(--nav-fab-size);
-        justify-self: center;
+      .aura-dock__glass {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
       }
-      .nav-item {
-        color: var(--text-secondary);
+      .aura-dock__bar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 4.5rem;
+        border-radius: 2rem;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.2) 0%,
+          rgba(255, 255, 255, 0.1) 100%
+        );
+        border: 1px solid rgba(255, 255, 255, 0.32);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.28),
+          0 10px 36px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(32px) saturate(1.5);
+        -webkit-backdrop-filter: blur(32px) saturate(1.5);
+      }
+      .aura-dock__cradle {
+        position: absolute;
+        left: 50%;
+        bottom: 2.35rem;
+        transform: translateX(-50%);
+        width: 5.75rem;
+        height: 2.9rem;
+        border-radius: 5.75rem 5.75rem 0 0;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.22) 0%,
+          rgba(255, 255, 255, 0.12) 100%
+        );
+        border: 1px solid rgba(255, 255, 255, 0.34);
+        border-bottom: none;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(32px) saturate(1.5);
+        -webkit-backdrop-filter: blur(32px) saturate(1.5);
+      }
+      .aura-dock__nav {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 4.5rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr 5.75rem 1fr 1fr;
+        align-items: end;
+        padding: 0 0.65rem 0.35rem;
+        z-index: 4;
+      }
+      .aura-dock__fab-slot {
+        width: 5.75rem;
+        justify-self: center;
+        pointer-events: none;
+      }
+      .aura-dock__item {
+        position: relative;
+        z-index: 4;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        gap: 0.15rem;
-        min-height: 44px;
+        justify-content: flex-end;
+        gap: 0.2rem;
         min-width: 0;
-        padding: 0.25rem 0.15rem;
-        font-size: 0.65rem;
-        line-height: 1.1;
-        transition: color 200ms ease;
+        margin: 0 auto;
+        padding: 0;
+        color: rgba(255, 255, 255, 0.72);
+        text-decoration: none;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        transition: transform 120ms ease;
       }
-      .nav-item span {
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+      .aura-dock__item:active {
+        transform: scale(0.94);
       }
-      .nav-item.active,
-      .nav-item.router-link-active {
-        color: var(--text-primary);
-      }
-      .nav-item .mat-icon {
-        font-size: 1.35rem;
-        width: 1.35rem;
-        height: 1.35rem;
-      }
-      .nav-fab {
-        position: absolute;
-        left: 50%;
-        top: 0;
-        transform: translate(-50%, -35%);
-        width: var(--nav-fab-size);
-        height: var(--nav-fab-size);
+      .aura-dock__icon-wrap {
         display: flex;
         align-items: center;
         justify-content: center;
-        border: none;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 14px;
+        transition: background-color 180ms ease, box-shadow 180ms ease;
+      }
+      .aura-dock__label {
+        font-size: 0.62rem;
+        font-weight: 500;
+        line-height: 1;
+        letter-spacing: 0.02em;
+        color: rgba(255, 255, 255, 0.62);
+        white-space: nowrap;
+      }
+      .aura-dock__item.is-active .aura-dock__label,
+      .aura-dock__item.router-link-active .aura-dock__label {
+        color: rgba(255, 255, 255, 0.92);
+      }
+      .aura-dock__item--leave .aura-dock__icon--outlined {
+        display: block;
+        color: rgba(255, 255, 255, 0.78);
+      }
+      .aura-dock__item.is-active .aura-dock__icon-wrap,
+      .aura-dock__item.router-link-active .aura-dock__icon-wrap {
+        background: rgba(99, 91, 255, 0.55);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.22),
+          0 4px 16px rgba(99, 91, 255, 0.35);
+      }
+      .aura-dock__icon {
+        font-size: 1.5rem !important;
+        width: 1.5rem !important;
+        height: 1.5rem !important;
+      }
+      .aura-dock__icon--filled {
+        display: none;
+        color: #fff;
+      }
+      .aura-dock__icon--outlined {
+        display: block;
+      }
+      .aura-dock__item.is-active .aura-dock__icon--filled,
+      .aura-dock__item.router-link-active .aura-dock__icon--filled {
+        display: block;
+      }
+      .aura-dock__item.is-active .aura-dock__icon--outlined,
+      .aura-dock__item.router-link-active .aura-dock__icon--outlined {
+        display: none;
+      }
+      .aura-dock__item.is-active .aura-dock__avatar,
+      .aura-dock__item.router-link-active .aura-dock__avatar {
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+      }
+      .aura-dock__avatar {
+        width: 2rem;
+        height: 2rem;
         border-radius: 50%;
-        background: var(--btn-primary);
-        color: var(--btn-label-color);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #1a1a1a;
+        background: linear-gradient(145deg, #fde047 0%, #f59e0b 100%);
+      }
+      .aura-dock__fab {
+        position: absolute;
+        left: 50%;
+        top: 0;
+        transform: translate(-50%, 0);
+        z-index: 10;
+        width: 4.25rem;
+        height: 4.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        border: 2.5px solid rgba(255, 255, 255, 0.28);
+        background: var(--gradient-fab);
+        color: #fff;
         text-decoration: none;
-        box-shadow: 0 0 24px rgba(99, 91, 255, 0.35), var(--shadow-md);
+        cursor: pointer;
         pointer-events: auto;
-        z-index: 2;
-        transition: transform 200ms ease, box-shadow 200ms ease;
+        box-shadow:
+          0 0 32px rgba(168, 85, 247, 0.55),
+          0 10px 28px rgba(0, 0, 0, 0.45);
+        transition: transform 180ms ease, box-shadow 180ms ease;
       }
-      .nav-fab:hover {
-        transform: translate(-50%, -38%) scale(1.04);
-        background: var(--btn-primary-hover);
-        box-shadow: 0 0 28px rgba(99, 91, 255, 0.45), var(--shadow-lg);
+      .aura-dock__fab:hover {
+        transform: translate(-50%, -2%) scale(1.04);
       }
-      .nav-fab:active {
-        transform: translate(-50%, -33%) scale(0.96);
+      .aura-dock__fab:active {
+        transform: translate(-50%, 2%) scale(0.96);
       }
-      .nav-fab .mat-icon {
-        font-size: 1.5rem;
-        width: 1.5rem;
-        height: 1.5rem;
-      }
-      .nav-fab.fab-active {
-        box-shadow: 0 0 28px rgba(99, 91, 255, 0.45), 0 0 0 3px rgba(255, 255, 255, 0.15);
+      .aura-dock__fab .mat-icon {
+        font-size: 1.7rem;
+        width: 1.7rem;
+        height: 1.7rem;
       }
       .cart-chip-wrap {
         position: fixed;
-        bottom: calc(var(--nav-dock-height) + var(--nav-fab-size) * 0.35 + 1rem);
+        bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
         left: 1rem;
         right: 1rem;
         display: flex;
@@ -230,13 +360,26 @@ export class CustomerLayoutComponent {
     inject(CartWatcherService);
   }
   private readonly sessionService = inject(CustomerSessionService);
+  private readonly profileService = inject(CustomerProfileService);
   private readonly cartService = inject(CustomerCartService);
-  /** Injected so escalation service is created when customer is in app and can receive ack events */
   private readonly _escalation = inject(CustomerEscalationService);
-  private readonly notifications = inject(NotificationService);
+  private readonly bottomSheet = inject(MatBottomSheet);
 
   showBottomNav$ = this.sessionService.currentSession$.pipe(
     map((session) => !!session),
+  );
+
+  profileInitial$ = combineLatest([
+    this.profileService.profile$,
+    this.sessionService.currentSession$,
+  ]).pipe(
+    map(([profile, session]) => {
+      const name =
+        profile?.customerName?.trim() ||
+        session?.customerName?.trim() ||
+        '';
+      return name ? name.charAt(0).toUpperCase() : null;
+    }),
   );
 
   cartSummary$ = combineLatest([
@@ -253,36 +396,31 @@ export class CustomerLayoutComponent {
   }
 
   leaveTable(): void {
-    const session = this.sessionService.currentSessionSnapshot;
-    if (!session?.id) return;
+    this.clearUiBlockers();
 
-    this.sessionService.checkCanLeave(session).subscribe({
-      next: (result) => {
-        if (result.allowed) {
-          this.sessionService.clearLocalSession(session.id);
-          void this.router.navigate(['/customer/scan-table'], { queryParams: { mode: 'scan' } });
-        } else {
-          const goToBill = window.confirm(
-            'You still have an outstanding bill. Press OK to pay now, or Cancel to leave and scan a new table.',
-          );
-          if (goToBill) {
-            void this.router.navigate(['/customer/bill']);
-            return;
-          }
-          this.sessionService.clearLocalSession(session.id);
-          void this.router.navigate(['/customer/scan-table'], { queryParams: { mode: 'scan' } });
-        }
+    const session = this.sessionService.currentSessionSnapshot;
+    const companyId = session?.companyId;
+
+    this.sessionService.markIntentionalLeave();
+    if (session?.id) {
+      this.sessionService.clearLocalSession(session.id);
+    }
+    this.cartService.clear();
+
+    void this.router.navigate(['/customer/welcome'], {
+      queryParams: {
+        c: companyId ?? null,
+        t: null,
+        tableId: null,
+        sid: null,
       },
-      error: (err: unknown) => {
-        const status = err instanceof HttpErrorResponse ? err.status : undefined;
-        if (status === 404) {
-          this.sessionService.clearLocalSession(session.id);
-          this.notifications.warn('Your session has expired. Please scan the table QR again.');
-          void this.router.navigate(['/customer/welcome']);
-          return;
-        }
-        this.notifications.error('Could not check bill status. Try again.');
-      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
+  }
+
+  private clearUiBlockers(): void {
+    this.bottomSheet.dismiss();
+    document.querySelectorAll('.cdk-overlay-backdrop').forEach((el) => el.remove());
   }
 }

@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, tap, map, switchMap, Observable, of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { BehaviorSubject, tap, map, switchMap, Observable, of, catchError, throwError } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { StorageService } from '../../../core/services/storage.service';
 import { CustomerSession } from '../../../core/models/customer-session.model';
@@ -85,6 +86,16 @@ function normalizeStoredSession(raw: CustomerSession | null): CustomerSession | 
     customerName,
     participantId,
     participants,
+    phoneNumber:
+      typeof raw.phoneNumber === 'string' && raw.phoneNumber.trim().length > 0
+        ? raw.phoneNumber.trim()
+        : undefined,
+    dietaryPreferences: Array.isArray(raw.dietaryPreferences) ? raw.dietaryPreferences : undefined,
+    allergies: Array.isArray(raw.allergies)
+      ? raw.allergies.filter((a) => typeof a === 'string' && a.trim()).join(', ') || undefined
+      : typeof raw.allergies === 'string' && raw.allergies.trim().length > 0
+        ? raw.allergies.trim()
+        : undefined,
   };
 }
 
@@ -98,9 +109,23 @@ export class CustomerSessionService {
 
   private readonly sessionSubject = new BehaviorSubject<CustomerSession | null>(this.loadFromStorage());
   readonly currentSession$ = this.sessionSubject.asObservable();
+  /** Set when the customer explicitly leaves via nav; suppresses welcome QR auto-rejoin once. */
+  private skipTableArrivalOnce = false;
 
   get currentSessionSnapshot(): CustomerSession | null {
     return this.sessionSubject.value;
+  }
+
+  markIntentionalLeave(): void {
+    this.skipTableArrivalOnce = true;
+  }
+
+  consumeSkipTableArrival(): boolean {
+    if (!this.skipTableArrivalOnce) {
+      return false;
+    }
+    this.skipTableArrivalOnce = false;
+    return true;
   }
 
   constructor() {
@@ -230,11 +255,18 @@ export class CustomerSessionService {
    * Returns observable of { allowed: true } if they can leave, { allowed: false } if they must pay first.
    */
   checkCanLeave(session: CustomerSession): Observable<{ allowed: boolean }> {
-    const myId = session.participantId;
+    const myId =
+      session.participantId ??
+      session.participants?.find((p) => p.isCreator)?.id ??
+      session.participants?.[0]?.id;
+
     return this.getSessionWithBill(session.id).pipe(
       switchMap((swb) => {
         const myOrders = (swb.orders ?? []).filter(
-          (o) => o.participantId === myId && (o.status ?? '').toUpperCase() !== 'CANCELLED',
+          (o) =>
+            !!myId &&
+            o.participantId === myId &&
+            (o.status ?? '').toUpperCase() !== 'CANCELLED',
         );
         const myTotal = myOrders.reduce((s, o) => {
           const raw =
@@ -249,10 +281,19 @@ export class CustomerSessionService {
         if (myTotal === 0) return of({ allowed: true });
         return this.getPaymentStatus(session.id).pipe(
           map((status) => {
-            const me = status.participants?.find((p) => p.participantId === myId);
+            const me = myId
+              ? status.participants?.find((p) => p.participantId === myId)
+              : undefined;
             return { allowed: me?.paid === true };
           }),
+          catchError(() => of({ allowed: false })),
         );
+      }),
+      catchError((err: unknown) => {
+        if (err instanceof HttpErrorResponse && err.status === 404) {
+          return throwError(() => err);
+        }
+        return of({ allowed: true });
       }),
     );
   }
@@ -270,12 +311,36 @@ export class CustomerSessionService {
     this.sessionSubject.next(next);
   }
 
+  updateProfile(
+    sessionId: string,
+    body: {
+      customerName: string;
+      phoneNumber?: string;
+      dietaryPreferences?: string[];
+      allergies?: string;
+      participantId?: string;
+    },
+  ) {
+    return this.api.put<CustomerSession & { participants?: CustomerSession['participants'] }>(
+      `customer-sessions/${sessionId}/profile`,
+      body,
+    );
+  }
+
   endSession(sessionId: string) {
     return this.api.put<void>(`customer-sessions/${sessionId}/end`, {}).pipe(
       tap(() => {
         this.clearLocalSession(sessionId);
       }),
     );
+  }
+
+  /** Update in-memory + stored session without an API round-trip. */
+  patchLocalSession(session: CustomerSession): void {
+    const normalized = normalizeStoredSession(session);
+    if (!normalized) return;
+    this.storage.set(SESSION_KEY, normalized);
+    this.sessionSubject.next(normalized);
   }
 
   /** Clear session from storage and state without calling API (e.g. after payment success). */

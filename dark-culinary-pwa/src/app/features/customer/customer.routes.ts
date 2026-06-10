@@ -7,6 +7,7 @@ import { MenuPage } from './pages/menu/menu.page';
 import { CartPage } from './pages/cart/cart.page';
 import { OrdersPage } from './pages/orders/orders.page';
 import { BillPage } from './pages/bill/bill.page';
+import { ProfilePage } from './pages/profile/profile.page';
 import { customerAuthGuard } from '../../core/guards/customer-auth.guard';
 
 export const customerRoutes: Routes = [
@@ -17,6 +18,7 @@ export const customerRoutes: Routes = [
       { path: 'welcome', component: WelcomePage },
       { path: 'scan-table', component: ScanTablePage },
       { path: 'register', component: RegisterPage },
+      { path: 'profile', canActivate: [customerAuthGuard], component: ProfilePage },
       { path: 'menu', canActivate: [customerAuthGuard], component: MenuPage },
       { path: 'cart', canActivate: [customerAuthGuard], component: CartPage },
       { path: 'orders', canActivate: [customerAuthGuard], component: OrdersPage },

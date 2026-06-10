@@ -52,6 +52,21 @@ export class CustomerSessionsController {
     return this.sessionService.updateActivity(id);
   }
 
+  @Put(':id/profile')
+  updateProfile(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      customerName: string;
+      phoneNumber?: string;
+      dietaryPreferences?: string[];
+      allergies?: string;
+      participantId?: string;
+    },
+  ) {
+    return this.sessionService.updateProfile(id, body);
+  }
+
   @Put(':id/end')
   endSession(@Param('id') id: string) {
     return this.sessionService.endSession(id);

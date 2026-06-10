@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, signal, computed } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -12,14 +12,8 @@ import { GlassCardComponent } from '../../../../shared/components/glass-card/gla
 import { CustomerSessionService } from '../../services/customer-session.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { ApiService } from '../../../../core/services/api.service';
-
-const DIETARY_OPTIONS = [
-  { id: 'VEGAN', label: 'Vegan', icon: 'eco' },
-  { id: 'VEGETARIAN', label: 'Vegetarian', icon: 'spa' },
-  { id: 'GLUTEN_FREE', label: 'Gluten-free', icon: 'no_food' },
-  { id: 'DAIRY_FREE', label: 'Dairy-free', icon: 'no_food' },
-  { id: 'NUT_FREE', label: 'Nut-free', icon: 'warning_amber' },
-];
+import { CustomerProfileService } from '../../services/customer-profile.service';
+import { DIETARY_OPTIONS } from '../../constants/dietary-options';
 
 @Component({
   selector: 'app-customer-register',
@@ -172,11 +166,12 @@ const DIETARY_OPTIONS = [
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class RegisterPage {
+export class RegisterPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly sessionService = inject(CustomerSessionService);
+  private readonly profileService = inject(CustomerProfileService);
   private readonly notifications = inject(NotificationService);
   private readonly api = inject(ApiService);
 
@@ -192,6 +187,33 @@ export class RegisterPage {
     agree: [false, Validators.requiredTrue],
   });
 
+  ngOnInit(): void {
+    const saved = this.profileService.resolveProfile(this.sessionService.currentSessionSnapshot);
+    if (saved) {
+      this.form.patchValue({
+        customerName: saved.customerName,
+        phoneNumber: saved.phoneNumber ?? '',
+        dietaryPreferences: saved.dietaryPreferences ?? [],
+        allergies: saved.allergies ?? '',
+      });
+      if (this.isJoinMode()) {
+        this.form.patchValue({ agree: true });
+      }
+    }
+  }
+
+  private persistProfileFromForm(): void {
+    const name = this.form.value.customerName?.trim();
+    if (!name) return;
+    this.profileService.saveProfile({
+      customerName: name,
+      phoneNumber: this.form.value.phoneNumber?.trim() || undefined,
+      dietaryPreferences: this.form.value.dietaryPreferences ?? [],
+      allergies: this.form.value.allergies?.trim() || undefined,
+      deviceId: this.profileService.getDeviceId(),
+    });
+  }
+
   submit(): void {
     const sid = this.route.snapshot.queryParamMap.get('sid');
     if (sid) {
@@ -201,10 +223,12 @@ export class RegisterPage {
         return;
       }
       this.loading.set(true);
+      this.persistProfileFromForm();
       this.sessionService
         .joinSession(sid, {
           displayName: name,
           phoneNumber: this.form.value.phoneNumber?.trim() || undefined,
+          deviceId: this.profileService.getDeviceId(),
         })
         .subscribe({
           next: () => {
@@ -231,6 +255,7 @@ export class RegisterPage {
     }
 
     const doStartSession = (resolvedTableId: string) => {
+      this.persistProfileFromForm();
       this.loading.set(true);
       this.sessionService
         .startSession(companyGuid, resolvedTableId, {

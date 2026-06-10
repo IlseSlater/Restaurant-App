@@ -37,6 +37,9 @@ let CustomerSessionsController = class CustomerSessionsController {
     updateActivity(id) {
         return this.sessionService.updateActivity(id);
     }
+    updateProfile(id, body) {
+        return this.sessionService.updateProfile(id, body);
+    }
     endSession(id) {
         return this.sessionService.endSession(id);
     }
@@ -107,6 +110,14 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CustomerSessionsController.prototype, "updateActivity", null);
+__decorate([
+    (0, common_1.Put)(':id/profile'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], CustomerSessionsController.prototype, "updateProfile", null);
 __decorate([
     (0, common_1.Put)(':id/end'),
     __param(0, (0, common_1.Param)('id')),

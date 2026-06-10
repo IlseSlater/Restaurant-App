@@ -692,13 +692,13 @@ let OrdersService = class OrdersService {
         if (!updatedOrder) {
             throw new Error('Customer order not found');
         }
-        const itemStatuses = (updatedOrder.items ?? []).map((i) => (i.status ?? '').toString().toUpperCase()).filter(Boolean);
-        if (itemStatuses.length > 0 && itemStatuses.every((s) => s === 'CANCELLED')) {
+        const derivedStatus = this.deriveCustomerOrderStatusFromItems(updatedOrder);
+        if (derivedStatus && derivedStatus !== updatedOrder.status) {
             await this.prisma.customerOrder.update({
                 where: { id: orderId },
-                data: { status: 'CANCELLED' },
+                data: { status: derivedStatus },
             });
-            updatedOrder.status = 'CANCELLED';
+            updatedOrder.status = derivedStatus;
         }
         console.log(`✅ Updated customer order item ${itemId} to ${status}`);
         const companyId = order.companyId;
@@ -727,15 +727,51 @@ let OrdersService = class OrdersService {
             orderId,
             itemId,
             status,
-            timestamp: new Date(),
+            orderStatus: updatedOrder.status,
+            customerSessionId: order.customerSessionId,
+            tableId: order.tableId,
+            timestamp: new Date().toISOString(),
         };
-        this.webSocketGateway.server
-            .to(`customer-${order.customerSessionId}`)
-            .emit('order_status_updated', customerPayload);
-        this.webSocketGateway.server
-            .to(`customer-${order.customerSessionId}`)
-            .emit('item_status_updated', { ...customerPayload, tableId: order.tableId });
+        const sessionRoom = `customer-${order.customerSessionId}`;
+        this.webSocketGateway.server.to(sessionRoom).emit('order_status_updated', customerPayload);
+        this.webSocketGateway.server.to(sessionRoom).emit('item_status_updated', customerPayload);
+        this.webSocketGateway.emitToCompany(companyId, 'customer', 'item_status_updated', customerPayload);
+        this.webSocketGateway.emitToCompany(companyId, 'customer', 'order_status_updated', customerPayload);
+        this.webSocketGateway.emitToCompany(companyId, 'customer', 'order_status_changed', {
+            orderId,
+            status: updatedOrder.status,
+            tableId: order.tableId,
+            customerSessionId: order.customerSessionId,
+            timestamp: customerPayload.timestamp,
+        });
+        if (order.tableId) {
+            this.webSocketGateway.emitToTable(order.tableId, 'item_status_updated', customerPayload);
+        }
         return updatedOrder;
+    }
+    deriveCustomerOrderStatusFromItems(order) {
+        const current = (order.status ?? '').toString().toUpperCase();
+        const itemStatuses = (order.items ?? [])
+            .map((i) => (i.status ?? '').toString().toUpperCase())
+            .filter((s) => !!s);
+        if (current === 'CANCELLED')
+            return 'CANCELLED';
+        if (itemStatuses.length === 0)
+            return current || 'PENDING';
+        if (itemStatuses.every((s) => s === 'CANCELLED'))
+            return 'CANCELLED';
+        const activeStatuses = itemStatuses.filter((s) => s !== 'CANCELLED');
+        if (activeStatuses.length === 0)
+            return 'CANCELLED';
+        if (activeStatuses.some((s) => s === 'COLLECTED'))
+            return 'COLLECTED';
+        if (activeStatuses.some((s) => s === 'READY'))
+            return 'READY';
+        if (activeStatuses.some((s) => s === 'PREPARING' || s === 'CONFIRMED'))
+            return 'PREPARING';
+        if (activeStatuses.every((s) => s === 'SERVED' || s === 'DELIVERED'))
+            return 'SERVED';
+        return current || 'PENDING';
     }
     async updateCustomerOrderBarStatus(id, status) {
         const existingOrder = await this.prisma.customerOrder.findUnique({

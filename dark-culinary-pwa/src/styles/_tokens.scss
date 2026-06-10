@@ -77,10 +77,15 @@
   --shadow-glow: 0 0 0 1px var(--border-glow), 0 0 32px var(--accent-glow);
   --shadow-card-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 
-  /* Floating nav */
-  --nav-dock-height: 4.25rem;
-  --nav-fab-size: 3.5rem;
-  --nav-dock-radius: 1.75rem;
+  /* Floating nav (AURA dock) */
+  --nav-dock-height: 3.75rem;
+  --nav-fab-size: 4.125rem;
+  --nav-dock-radius: 999px;
+  --nav-active-bg: rgba(99, 91, 255, 0.5);
+  --nav-active-color: #ffffff;
+  --nav-icon-color: rgba(255, 255, 255, 0.72);
+  --nav-icon-active: #ffffff;
+  --nav-glass-bg: rgba(22, 22, 32, 0.62);
 
   /* Overlay / z-index */
   --overlay-bg: rgba(0, 0, 0, 0.55);

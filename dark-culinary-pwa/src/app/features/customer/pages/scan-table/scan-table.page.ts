@@ -20,6 +20,7 @@ import { MatInputModule } from '@angular/material/input';
 import { ApiService } from '../../../../core/services/api.service';
 import { HapticService } from '../../../../core/services/haptic.service';
 import { CustomerSessionService } from '../../services/customer-session.service';
+import { CustomerTableArrivalService } from '../../services/customer-table-arrival.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { StorageService } from '../../../../core/services/storage.service';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
@@ -392,6 +393,7 @@ export class ScanTablePage implements OnDestroy {
   private readonly haptics = inject(HapticService);
   private readonly ngZone = inject(NgZone);
   private readonly sessionService = inject(CustomerSessionService);
+  private readonly tableArrival = inject(CustomerTableArrivalService);
   private readonly storage = inject(StorageService);
   private readonly notifications = inject(NotificationService);
   private readonly bottomSheet = inject(MatBottomSheet);
@@ -642,10 +644,16 @@ export class ScanTablePage implements OnDestroy {
     const move = this.pendingTableMove();
     this.pendingTableMove.set(null);
     if (!move) return;
-    void this.router.navigate(['/customer/register'], {
-      queryParams: { c: move.companyGuid, tableId: move.tableId, t: move.tableNumber },
-      queryParamsHandling: '',
-    });
+    const ctx = {
+      companyGuid: move.companyGuid,
+      tableId: move.tableId,
+      tableNumber: String(move.tableNumber),
+    };
+    if (this.tableArrival.hasStoredProfile()) {
+      this.tableArrival.beginWithStoredProfile(ctx).subscribe({ error: () => undefined });
+      return;
+    }
+    this.tableArrival.goToRegister(ctx);
   }
 
   private attachStream(stream: MediaStream): void {
@@ -790,14 +798,32 @@ export class ScanTablePage implements OnDestroy {
         this.checkSameTableUnpaidThenProceed(
           table.id,
           () => {
+            const arrivalCtx = {
+              companyGuid,
+              tableId: table.id,
+              tableNumber: String(table.number),
+            };
             this.sessionService.getScanStatus(table.id, companyGuid).subscribe({
               next: (status) => {
+                const session = this.sessionService.currentSessionSnapshot;
+                if (
+                  status.hasActiveSession &&
+                  status.sessionId &&
+                  session?.tableId === table.id &&
+                  session.id === status.sessionId
+                ) {
+                  void this.router.navigate(['/customer/menu']);
+                  return;
+                }
+
+                if (this.tableArrival.hasStoredProfile()) {
+                  this.tableArrival
+                    .beginWithStoredProfile(arrivalCtx, status)
+                    .subscribe({ error: () => undefined });
+                  return;
+                }
+
                 if (status.hasActiveSession && status.sessionId) {
-                  const session = this.sessionService.currentSessionSnapshot;
-                  if (session?.tableId === table.id && session.id === status.sessionId) {
-                    void this.router.navigate(['/customer/menu']);
-                    return;
-                  }
                   const sheetRef = this.bottomSheet.open(JoinTableSheetComponent, {
                     data: {
                       tableNumber: status.tableNumber ?? table.number,
@@ -808,32 +834,25 @@ export class ScanTablePage implements OnDestroy {
                   });
                   sheetRef.afterDismissed().subscribe((join) => {
                     if (join === true) {
-                      void this.router.navigate(['/customer/register'], {
-                        queryParams: {
-                          c: companyGuid,
-                          t: String(table.number),
-                          tableId: table.id,
-                          sid: status.sessionId,
-                        },
-                        queryParamsHandling: '',
-                      });
+                      this.tableArrival.goToRegister(arrivalCtx, status.sessionId);
                     }
                   });
-                } else {
-                  if (this.maybeMoveExistingSessionToNewTable(table.id, table.number)) {
-                    return;
-                  }
-                  void this.router.navigate(['/customer/register'], {
-                    queryParams: { c: companyGuid, tableId: table.id, t: table.number },
-                    queryParamsHandling: '',
-                  });
+                  return;
                 }
+
+                if (this.maybeMoveExistingSessionToNewTable(table.id, table.number)) {
+                  return;
+                }
+                this.tableArrival.goToRegister(arrivalCtx);
               },
               error: () => {
-                void this.router.navigate(['/customer/register'], {
-                  queryParams: { c: companyGuid, tableId: table.id, t: table.number },
-                  queryParamsHandling: '',
-                });
+                if (this.tableArrival.hasStoredProfile()) {
+                  this.tableArrival
+                    .beginWithStoredProfile(arrivalCtx)
+                    .subscribe({ error: () => undefined });
+                  return;
+                }
+                this.tableArrival.goToRegister(arrivalCtx);
               },
             });
           },
