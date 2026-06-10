@@ -22,7 +22,9 @@ type RoomMembership =
 export class WebSocketService implements OnDestroy {
   private socket: Socket | null = null;
   private readonly disconnect$ = new Subject<void>();
+  private readonly connected$ = new Subject<void>();
   private readonly joinedRooms: RoomMembership[] = [];
+  private readonly eventSubjects = new Map<string, Subject<unknown>>();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private readonly ngZone = inject(NgZone);
@@ -31,39 +33,66 @@ export class WebSocketService implements OnDestroy {
     if (this.socket?.connected) {
       return;
     }
-    if (this.socket) {
-      this.socket.removeAllListeners();
-      this.socket.disconnect();
-      this.socket = null;
+
+    if (!this.socket) {
+      this.socket = io(getWsUrl(), {
+        transports: ['websocket', 'polling'],
+        withCredentials: true,
+        autoConnect: true,
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+
+      this.socket.on('connect', () => {
+        this.reconnectAttempts = 0;
+        this.bindRegisteredEventHandlers();
+        this.rejoinAllRooms();
+        this.ngZone.run(() => this.connected$.next());
+      });
+
+      this.socket.on('disconnect', () => {
+        this.ngZone.run(() => this.disconnect$.next());
+      });
+
+      this.socket.on('connect_error', () => {
+        this.reconnectAttempts++;
+      });
+
+      this.socket.io.on('reconnect', () => {
+        this.bindRegisteredEventHandlers();
+        this.rejoinAllRooms();
+        this.ngZone.run(() => this.connected$.next());
+      });
+
+      this.bindRegisteredEventHandlers();
+      return;
     }
 
-    this.socket = io(getWsUrl(), {
-      transports: ['websocket', 'polling'],
-      withCredentials: true,
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: this.maxReconnectAttempts,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-    });
+    if (!this.socket.connected) {
+      this.socket.connect();
+    }
+  }
 
-    this.socket.on('connect', () => {
-      this.reconnectAttempts = 0;
-      this.rejoinAllRooms();
-    });
+  /** Fires when the socket connects or reconnects. */
+  onConnect(): Observable<void> {
+    return this.connected$.asObservable();
+  }
 
-    this.socket.on('disconnect', (reason) => {
-      this.disconnect$.next();
-    });
+  onDisconnect(): Observable<void> {
+    return this.disconnect$.asObservable();
+  }
 
-    this.socket.on('connect_error', () => {
-      this.reconnectAttempts++;
-    });
-
-    this.socket.io.on('reconnect', () => {
-      this.rejoinAllRooms();
-    });
+  private bindRegisteredEventHandlers(): void {
+    if (!this.socket) return;
+    for (const [event, subject] of this.eventSubjects) {
+      this.socket.off(event);
+      this.socket.on(event, (payload: unknown) => {
+        this.ngZone.run(() => subject.next(payload));
+      });
+    }
   }
 
   private rejoinAllRooms(): void {
@@ -82,6 +111,7 @@ export class WebSocketService implements OnDestroy {
   }
 
   joinRoom(room: string): void {
+    this.connect();
     this.socket?.emit('join_room', { room, userType: 'generic' });
     if (!this.joinedRooms.some((m) => 'room' in m && m.room === room)) {
       this.joinedRooms.push({ room });
@@ -95,9 +125,10 @@ export class WebSocketService implements OnDestroy {
   }
 
   joinCompanyRooms(companyId: string, rooms: string[]): void {
+    this.connect();
     this.socket?.emit('join-company-rooms', { companyId, rooms });
     const existing = this.joinedRooms.findIndex(
-      (m) => 'companyId' in m && m.companyId === companyId
+      (m) => 'companyId' in m && m.companyId === companyId,
     );
     const entry: RoomMembership = { companyId, rooms };
     if (existing !== -1) {
@@ -108,11 +139,17 @@ export class WebSocketService implements OnDestroy {
   }
 
   on<T>(event: string): Observable<T> {
-    const subject = new Subject<T>();
-    this.socket?.on(event, (payload: T) =>
-      // Ensure WebSocket callbacks run inside Angular's zone so change detection works
-      this.ngZone.run(() => subject.next(payload)),
-    );
+    let subject = this.eventSubjects.get(event) as Subject<T> | undefined;
+    if (!subject) {
+      subject = new Subject<T>();
+      this.eventSubjects.set(event, subject as Subject<unknown>);
+      if (this.socket) {
+        this.socket.off(event);
+        this.socket.on(event, (payload: T) => {
+          this.ngZone.run(() => subject!.next(payload));
+        });
+      }
+    }
     return subject.asObservable();
   }
 
@@ -127,11 +164,16 @@ export class WebSocketService implements OnDestroy {
       this.socket = null;
     }
     this.joinedRooms.length = 0;
-    this.disconnect$.next();
+    this.ngZone.run(() => this.disconnect$.next());
   }
 
   ngOnDestroy(): void {
     this.disconnect();
     this.disconnect$.complete();
+    this.connected$.complete();
+    for (const subject of this.eventSubjects.values()) {
+      subject.complete();
+    }
+    this.eventSubjects.clear();
   }
 }

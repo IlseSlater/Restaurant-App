@@ -5,14 +5,14 @@ export declare class MenuService {
     private webSocketGateway;
     constructor(prisma: PrismaService, webSocketGateway: RestaurantWebSocketGateway);
     getAllMenuItems(companyId?: string): Promise<{
-        id: string;
-        name: string;
-        category: string;
         description: string | null;
+        id: string;
+        companyId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        companyId: string;
         price: import("@prisma/client/runtime/library").Decimal;
+        category: string;
         imageUrl: string | null;
         isAvailable: boolean;
         preparationTime: number | null;
@@ -22,14 +22,14 @@ export declare class MenuService {
     }[]>;
     getCategories(): Promise<string[]>;
     getMenuItem(id: string): Promise<{
-        id: string;
-        name: string;
-        category: string;
         description: string | null;
+        id: string;
+        companyId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        companyId: string;
         price: import("@prisma/client/runtime/library").Decimal;
+        category: string;
         imageUrl: string | null;
         isAvailable: boolean;
         preparationTime: number | null;
@@ -49,14 +49,14 @@ export declare class MenuService {
         prepTime?: number;
         isBundle?: boolean;
     }): Promise<{
-        id: string;
-        name: string;
-        category: string;
         description: string | null;
+        id: string;
+        companyId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        companyId: string;
         price: import("@prisma/client/runtime/library").Decimal;
+        category: string;
         imageUrl: string | null;
         isAvailable: boolean;
         preparationTime: number | null;
@@ -65,14 +65,14 @@ export declare class MenuService {
         isBundle: boolean;
     }>;
     updateMenuItem(id: string, updateDto: any): Promise<{
-        id: string;
-        name: string;
-        category: string;
         description: string | null;
+        id: string;
+        companyId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        companyId: string;
         price: import("@prisma/client/runtime/library").Decimal;
+        category: string;
         imageUrl: string | null;
         isAvailable: boolean;
         preparationTime: number | null;
@@ -81,14 +81,14 @@ export declare class MenuService {
         isBundle: boolean;
     }>;
     deleteMenuItem(id: string): Promise<{
-        id: string;
-        name: string;
-        category: string;
         description: string | null;
+        id: string;
+        companyId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        companyId: string;
         price: import("@prisma/client/runtime/library").Decimal;
+        category: string;
         imageUrl: string | null;
         isAvailable: boolean;
         preparationTime: number | null;

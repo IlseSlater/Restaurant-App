@@ -1,10 +1,12 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   inject,
   signal,
   computed,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -301,6 +303,7 @@ export class MenuPage {
   private readonly notifications = inject(NotificationService);
   private readonly api = inject(ApiService);
   private readonly bottomSheet = inject(MatBottomSheet);
+  private readonly destroyRef = inject(DestroyRef);
 
   private recoverFromInvalidSession(error?: unknown): void {
     const status = error instanceof HttpErrorResponse ? error.status : undefined;
@@ -333,38 +336,50 @@ export class MenuPage {
   private cartItemCount = signal(0);
 
   constructor() {
-    this.menuService.menu$.subscribe((items) => {
-      this.loading.set(false);
-      if (!items?.length) {
-        const session = this.sessionService.currentSessionSnapshot;
-        this.sessionService.clearLocalSession(session?.id);
-        void this.router.navigate(['/customer/welcome']);
-        return;
-      }
-      if (items?.length) {
-        this.categories.set(this.menuService.getCategories(items));
-      }
-    }, (err) => {
-      this.loading.set(false);
-      this.recoverFromInvalidSession(err);
-    });
-    this.cartService.items$.subscribe((items) => {
-      this.cartItemCount.set(items.reduce((s, i) => s + i.quantity, 0));
-    });
-    this.sessionService.currentSession$.subscribe((session) => {
-      if (session?.companyId) {
-        this.api.get<{ name?: string; logo?: string | null }>(`companies/${session.companyId}`).subscribe({
-          next: (c) => {
-            this.appBarTitle.set(c?.name ?? 'Menu');
-            this.companyName.set(c?.name ?? '');
-            this.companyLogo.set(c?.logo ?? null);
-          },
-          error: (err) => this.recoverFromInvalidSession(err),
-        });
-      } else {
-        this.recoverFromInvalidSession();
-      }
-    });
+    this.menuService.menu$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => {
+          this.loading.set(false);
+          const session = this.sessionService.currentSessionSnapshot;
+          if (!session?.id) {
+            return;
+          }
+          if (!items?.length) {
+            this.recoverFromInvalidSession();
+            return;
+          }
+          this.categories.set(this.menuService.getCategories(items));
+        },
+        error: (err) => {
+          this.loading.set(false);
+          this.recoverFromInvalidSession(err);
+        },
+      });
+
+    this.cartService.items$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((items) => {
+        this.cartItemCount.set(items.reduce((s, i) => s + i.quantity, 0));
+      });
+
+    this.sessionService.currentSession$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((session) => {
+        if (!session?.companyId) {
+          return;
+        }
+        this.api
+          .get<{ name?: string; logo?: string | null }>(`companies/${session.companyId}`)
+          .subscribe({
+            next: (c) => {
+              this.appBarTitle.set(c?.name ?? 'Menu');
+              this.companyName.set(c?.name ?? '');
+              this.companyLogo.set(c?.logo ?? null);
+            },
+            error: (err) => this.recoverFromInvalidSession(err),
+          });
+      });
   }
 
   goBack(): void {

@@ -10,15 +10,15 @@ export declare class PaymentsService {
     constructor(prisma: PrismaService, webSocketGateway: RestaurantWebSocketGateway, payFastProvider: PayFastProvider);
     createPaymentIntent(createPaymentDto: CreatePaymentDto): Promise<{
         payment: {
-            id: string;
             description: string | null;
+            id: string;
+            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            companyId: string;
+            currency: string;
             status: import(".prisma/client").$Enums.PaymentStatus;
             orderId: string | null;
             customerOrderId: string | null;
-            currency: string;
             provider: import(".prisma/client").$Enums.PaymentProvider;
             providerPaymentId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
@@ -34,15 +34,15 @@ export declare class PaymentsService {
     }>;
     createCheckout(dto: CheckoutDto): Promise<{
         payment: {
-            id: string;
             description: string | null;
+            id: string;
+            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            companyId: string;
+            currency: string;
             status: import(".prisma/client").$Enums.PaymentStatus;
             orderId: string | null;
             customerOrderId: string | null;
-            currency: string;
             provider: import(".prisma/client").$Enums.PaymentProvider;
             providerPaymentId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
@@ -59,15 +59,15 @@ export declare class PaymentsService {
     private handlePaymentSettled;
     createPaymentSplits(paymentId: string, splits: PaymentSplitDto[]): Promise<{
         id: string;
+        email: string | null;
         createdAt: Date;
         updatedAt: Date;
-        email: string | null;
         status: import(".prisma/client").$Enums.PaymentStatus;
-        customerSessionId: string | null;
-        participantId: string | null;
         phoneNumber: string | null;
+        customerSessionId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         paymentId: string;
+        participantId: string | null;
         payerName: string | null;
     }[]>;
     private createPayFastPayment;
@@ -78,15 +78,15 @@ export declare class PaymentsService {
     } | {
         success: boolean;
         payment: {
-            id: string;
             description: string | null;
+            id: string;
+            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            companyId: string;
+            currency: string;
             status: import(".prisma/client").$Enums.PaymentStatus;
             orderId: string | null;
             customerOrderId: string | null;
-            currency: string;
             provider: import(".prisma/client").$Enums.PaymentProvider;
             providerPaymentId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
@@ -100,14 +100,14 @@ export declare class PaymentsService {
     getPayment(paymentId: string): Promise<({
         order: {
             id: string;
+            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            companyId: string;
-            notes: string | null;
+            status: import(".prisma/client").$Enums.OrderStatus;
             tableId: string;
             customerId: string | null;
-            status: import(".prisma/client").$Enums.OrderStatus;
             total: import("@prisma/client/runtime/library").Decimal;
+            notes: string | null;
         } | null;
         customerOrder: ({
             customerSession: {
@@ -115,8 +115,8 @@ export declare class PaymentsService {
                 companyId: string;
                 isActive: boolean;
                 tableId: string;
-                phoneNumber: string | null;
                 customerName: string;
+                phoneNumber: string | null;
                 dietaryPreferences: string[];
                 allergies: string[];
                 sessionStart: Date;
@@ -130,11 +130,11 @@ export declare class PaymentsService {
             };
         } & {
             id: string;
+            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            companyId: string;
-            tableId: string;
             status: string;
+            tableId: string;
             total: import("@prisma/client/runtime/library").Decimal;
             customerSessionId: string;
             participantId: string | null;
@@ -145,27 +145,27 @@ export declare class PaymentsService {
         }) | null;
         splits: {
             id: string;
+            email: string | null;
             createdAt: Date;
             updatedAt: Date;
-            email: string | null;
             status: import(".prisma/client").$Enums.PaymentStatus;
-            customerSessionId: string | null;
-            participantId: string | null;
             phoneNumber: string | null;
+            customerSessionId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             paymentId: string;
+            participantId: string | null;
             payerName: string | null;
         }[];
     } & {
-        id: string;
         description: string | null;
+        id: string;
+        companyId: string;
         createdAt: Date;
         updatedAt: Date;
-        companyId: string;
+        currency: string;
         status: import(".prisma/client").$Enums.PaymentStatus;
         orderId: string | null;
         customerOrderId: string | null;
-        currency: string;
         provider: import(".prisma/client").$Enums.PaymentProvider;
         providerPaymentId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
@@ -176,14 +176,14 @@ export declare class PaymentsService {
     getPaymentsByCompany(companyId: string, status?: PaymentStatus): Promise<({
         order: {
             id: string;
+            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            companyId: string;
-            notes: string | null;
+            status: import(".prisma/client").$Enums.OrderStatus;
             tableId: string;
             customerId: string | null;
-            status: import(".prisma/client").$Enums.OrderStatus;
             total: import("@prisma/client/runtime/library").Decimal;
+            notes: string | null;
         } | null;
         customerOrder: ({
             customerSession: {
@@ -191,8 +191,8 @@ export declare class PaymentsService {
                 companyId: string;
                 isActive: boolean;
                 tableId: string;
-                phoneNumber: string | null;
                 customerName: string;
+                phoneNumber: string | null;
                 dietaryPreferences: string[];
                 allergies: string[];
                 sessionStart: Date;
@@ -206,11 +206,11 @@ export declare class PaymentsService {
             };
         } & {
             id: string;
+            companyId: string;
             createdAt: Date;
             updatedAt: Date;
-            companyId: string;
-            tableId: string;
             status: string;
+            tableId: string;
             total: import("@prisma/client/runtime/library").Decimal;
             customerSessionId: string;
             participantId: string | null;
@@ -221,27 +221,27 @@ export declare class PaymentsService {
         }) | null;
         splits: {
             id: string;
+            email: string | null;
             createdAt: Date;
             updatedAt: Date;
-            email: string | null;
             status: import(".prisma/client").$Enums.PaymentStatus;
-            customerSessionId: string | null;
-            participantId: string | null;
             phoneNumber: string | null;
+            customerSessionId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             paymentId: string;
+            participantId: string | null;
             payerName: string | null;
         }[];
     } & {
-        id: string;
         description: string | null;
+        id: string;
+        companyId: string;
         createdAt: Date;
         updatedAt: Date;
-        companyId: string;
+        currency: string;
         status: import(".prisma/client").$Enums.PaymentStatus;
         orderId: string | null;
         customerOrderId: string | null;
-        currency: string;
         provider: import(".prisma/client").$Enums.PaymentProvider;
         providerPaymentId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
@@ -251,27 +251,27 @@ export declare class PaymentsService {
     })[]>;
     updatePaymentSplit(splitId: string, status: PaymentStatus): Promise<{
         id: string;
+        email: string | null;
         createdAt: Date;
         updatedAt: Date;
-        email: string | null;
         status: import(".prisma/client").$Enums.PaymentStatus;
-        customerSessionId: string | null;
-        participantId: string | null;
         phoneNumber: string | null;
+        customerSessionId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         paymentId: string;
+        participantId: string | null;
         payerName: string | null;
     }>;
     cancelPayment(paymentId: string): Promise<{
-        id: string;
         description: string | null;
+        id: string;
+        companyId: string;
         createdAt: Date;
         updatedAt: Date;
-        companyId: string;
+        currency: string;
         status: import(".prisma/client").$Enums.PaymentStatus;
         orderId: string | null;
         customerOrderId: string | null;
-        currency: string;
         provider: import(".prisma/client").$Enums.PaymentProvider;
         providerPaymentId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;

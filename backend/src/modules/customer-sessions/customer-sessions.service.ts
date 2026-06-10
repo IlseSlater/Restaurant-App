@@ -85,6 +85,7 @@ export class CustomerSessionsService {
               customerSessionId: session.id,
               displayName: data.customerName,
               isCreator: true,
+              phoneNumber: normalizedData.phoneNumber ?? null,
             },
           });
 
@@ -377,6 +378,62 @@ export class CustomerSessionsService {
       },
       include: { table: true, participants: true },
     });
+  }
+
+  async updateProfile(
+    sessionId: string,
+    data: {
+      customerName: string;
+      phoneNumber?: string;
+      dietaryPreferences?: string[];
+      allergies?: string;
+      participantId?: string;
+    },
+  ) {
+    const session = await this.prisma.customerSession.findUnique({
+      where: { id: sessionId },
+      include: { participants: true },
+    });
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    const customerName = data.customerName.trim();
+    if (!customerName) {
+      throw new ConflictException('Name is required');
+    }
+
+    const phoneNumber = data.phoneNumber?.trim()
+      ? this.normalizePhoneNumber(data.phoneNumber.trim())
+      : null;
+
+    await this.prisma.customerSession.update({
+      where: { id: sessionId },
+      data: {
+        customerName,
+        phoneNumber,
+        dietaryPreferences: data.dietaryPreferences ?? [],
+        allergies: data.allergies?.trim() ? [data.allergies.trim()] : [],
+        lastActivity: new Date(),
+      },
+    });
+
+    const participantId =
+      data.participantId ??
+      session.participants.find((p) => p.isCreator)?.id ??
+      session.participants[0]?.id;
+
+    if (participantId) {
+      await this.prisma.participant.update({
+        where: { id: participantId },
+        data: {
+          displayName: customerName,
+          phoneNumber,
+        },
+      });
+    }
+
+    return this.getSession(sessionId);
   }
 
   async getActiveSessionsByTable(tableId: string) {

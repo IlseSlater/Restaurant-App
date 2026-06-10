@@ -13,6 +13,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../../../core/services/api.service';
 import { CustomerSessionService } from '../../services/customer-session.service';
+import { CustomerTableArrivalService } from '../../services/customer-table-arrival.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { StorageService } from '../../../../core/services/storage.service';
 import { JoinTableSheetComponent } from '../../components/join-table-sheet/join-table-sheet.component';
@@ -292,6 +293,7 @@ export class WelcomePage implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly bottomSheet = inject(MatBottomSheet);
   private readonly sessionService = inject(CustomerSessionService);
+  private readonly tableArrival = inject(CustomerTableArrivalService);
   private readonly notifications = inject(NotificationService);
   private readonly storage = inject(StorageService);
   private sessionSub?: Subscription;
@@ -319,16 +321,23 @@ export class WelcomePage implements OnInit, OnDestroy {
         });
       } else {
         this.activeSessionTableLabel.set(null);
-        this.companyName.set('');
-        this.companyLogo.set(null);
+        const companyFromUrl = this.route.snapshot.queryParamMap.get('c');
+        if (companyFromUrl) {
+          this.loadCompanyBranding(companyFromUrl);
+        } else {
+          this.companyName.set('');
+          this.companyLogo.set(null);
+        }
       }
     });
 
     const c = this.route.snapshot.queryParamMap.get('c');
     const t = this.route.snapshot.queryParamMap.get('t');
 
-    if (c && t) {
+    if (c && t && !this.sessionService.consumeSkipTableArrival()) {
       this.startTableArrivalFlow(c, t);
+    } else if (c) {
+      this.loadCompanyBranding(c);
     }
   }
 
@@ -365,8 +374,15 @@ export class WelcomePage implements OnInit, OnDestroy {
       return;
     }
 
+    const arrivalCtx = { companyGuid, tableId, tableNumber };
+
     this.sessionService.getScanStatus(tableId, companyGuid).subscribe({
       next: (status) => {
+        if (this.tableArrival.hasStoredProfile()) {
+          this.tableArrival.beginWithStoredProfile(arrivalCtx, status).subscribe({ error: () => undefined });
+          return;
+        }
+
         if (status.hasActiveSession && status.sessionId) {
           const joinRef = this.bottomSheet.open(JoinTableSheetComponent, {
             data: {
@@ -378,43 +394,40 @@ export class WelcomePage implements OnInit, OnDestroy {
           });
           joinRef.afterDismissed().subscribe((join) => {
             if (join === true) {
-              void this.router.navigate(['/customer/register'], {
-                queryParams: { c: companyGuid, t: tableNumber, tableId, sid: status.sessionId },
-                queryParamsHandling: '',
-              });
+              this.tableArrival.goToRegister(arrivalCtx, status.sessionId);
             } else {
               void this.router.navigate(['/customer/scan-table']);
             }
           });
-        } else {
-          const current =
-            this.sessionService.currentSessionSnapshot ??
-            this.storage.get<{ id?: string; tableId?: string }>(SESSION_KEY);
-          const parsedTableNumber = Number(status.tableNumber ?? tableNumber);
-          const targetTableLabel = Number.isFinite(parsedTableNumber) ? parsedTableNumber : tableNumber;
-          if (current?.id) {
-            void this.router.navigate(['/customer/scan-table'], {
-              queryParams: {
-                c: companyGuid,
-                mode: 'scan',
-                moveTableId: tableId,
-                moveTableNumber: String(targetTableLabel),
-              },
-              queryParamsHandling: '',
-            });
-            return;
-          }
-          void this.router.navigate(['/customer/register'], {
-            queryParams: { c: companyGuid, t: tableNumber, tableId },
+          return;
+        }
+
+        const current =
+          this.sessionService.currentSessionSnapshot ??
+          this.storage.get<{ id?: string; tableId?: string }>(SESSION_KEY);
+        const parsedTableNumber = Number(status.tableNumber ?? tableNumber);
+        const targetTableLabel = Number.isFinite(parsedTableNumber) ? parsedTableNumber : tableNumber;
+        if (current?.id) {
+          void this.router.navigate(['/customer/scan-table'], {
+            queryParams: {
+              c: companyGuid,
+              mode: 'scan',
+              moveTableId: tableId,
+              moveTableNumber: String(targetTableLabel),
+            },
             queryParamsHandling: '',
           });
+          return;
         }
+
+        this.tableArrival.goToRegister(arrivalCtx);
       },
       error: () => {
-        void this.router.navigate(['/customer/register'], {
-          queryParams: { c: companyGuid, t: tableNumber, tableId },
-          queryParamsHandling: '',
-        });
+        if (this.tableArrival.hasStoredProfile()) {
+          this.tableArrival.beginWithStoredProfile(arrivalCtx).subscribe({ error: () => undefined });
+          return;
+        }
+        this.tableArrival.goToRegister(arrivalCtx);
       },
     });
   }
@@ -472,10 +485,11 @@ export class WelcomePage implements OnInit, OnDestroy {
           (tb) => String(tb.number) === tableNumber || tb.id === tableNumber,
         );
         if (!table?.id) {
-          void this.router.navigate(['/customer/register'], {
-            queryParams: { c: companyGuid, t: tableNumber },
-            queryParamsHandling: '',
-          });
+          if (this.tableArrival.hasStoredProfile()) {
+            this.notifications.warn('Table not found. Please scan the QR code at your table.');
+          } else {
+            this.tableArrival.goToRegister({ companyGuid, tableId: '', tableNumber });
+          }
           return;
         }
         const session = this.sessionService.currentSessionSnapshot;
@@ -488,10 +502,11 @@ export class WelcomePage implements OnInit, OnDestroy {
         this.proceedToScanStatus(table.id, companyGuid, tableNumber);
       },
       error: () => {
-        void this.router.navigate(['/customer/register'], {
-          queryParams: { c: companyGuid, t: tableNumber },
-          queryParamsHandling: '',
-        });
+        if (!this.tableArrival.hasStoredProfile()) {
+          this.tableArrival.goToRegister({ companyGuid, tableId: '', tableNumber });
+        } else {
+          this.notifications.error('Could not load table information. Please try again.');
+        }
       },
     });
   }

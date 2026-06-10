@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { ApiService } from '../../../core/services/api.service';
 import { MenuItem } from '../../../core/models/menu.model';
 import { CustomerSessionService } from './customer-session.service';
-import { combineLatest, map, Observable, switchMap } from 'rxjs';
+import { combineLatest, map, switchMap, of } from 'rxjs';
 import { BehaviorSubject } from 'rxjs';
 
 @Injectable({
@@ -18,7 +18,7 @@ export class CustomerMenuService {
   menu$ = this.sessionService.currentSession$.pipe(
     switchMap((session) => {
       if (!session) {
-        return [[] as MenuItem[]];
+        return of([] as MenuItem[]);
       }
       return this.api.get<MenuItem[]>('menu', { companyId: session.companyId });
     }),

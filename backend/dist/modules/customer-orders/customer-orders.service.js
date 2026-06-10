@@ -443,14 +443,30 @@ let CustomerOrdersService = class CustomerOrdersService {
             });
             updatedOrder.status = derivedStatus;
         }
-        this.webSocketGateway.server
-            .to(`customer-${updatedOrder.customerSessionId}`)
-            .emit('order_status_updated', {
+        const customerPayload = {
             orderId: updatedOrder.id,
             itemId,
+            status,
+            orderStatus: updatedOrder.status,
+            customerSessionId: updatedOrder.customerSessionId,
+            tableId: updatedOrder.tableId,
+            timestamp: new Date().toISOString(),
+        };
+        const sessionRoom = `customer-${updatedOrder.customerSessionId}`;
+        this.webSocketGateway.server.to(sessionRoom).emit('order_status_updated', customerPayload);
+        this.webSocketGateway.server.to(sessionRoom).emit('item_status_updated', customerPayload);
+        this.webSocketGateway.emitToCompany(updatedOrder.companyId, 'customer', 'item_status_updated', customerPayload);
+        this.webSocketGateway.emitToCompany(updatedOrder.companyId, 'customer', 'order_status_updated', customerPayload);
+        this.webSocketGateway.emitToCompany(updatedOrder.companyId, 'customer', 'order_status_changed', {
+            orderId: updatedOrder.id,
             status: updatedOrder.status,
-            timestamp: new Date(),
+            tableId: updatedOrder.tableId,
+            customerSessionId: updatedOrder.customerSessionId,
+            timestamp: customerPayload.timestamp,
         });
+        if (updatedOrder.tableId) {
+            this.webSocketGateway.emitToTable(updatedOrder.tableId, 'item_status_updated', customerPayload);
+        }
         return updatedOrder;
     }
     deriveOrderStatusFromItems(order) {
