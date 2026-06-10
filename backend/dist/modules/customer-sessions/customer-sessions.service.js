@@ -27,6 +27,7 @@ let CustomerSessionsService = class CustomerSessionsService {
         const normalizedData = {
             ...data,
             phoneNumber: data.phoneNumber ? this.normalizePhoneNumber(data.phoneNumber) : undefined,
+            allergies: this.normalizeAllergies(data.allergies),
         };
         let expectedLocation = null;
         if (data.companyId) {
@@ -401,6 +402,20 @@ let CustomerSessionsService = class CustomerSessionsService {
             },
         });
         return sessions.length > 0 ? sessions[0] : null;
+    }
+    normalizeAllergies(allergies) {
+        if (!allergies)
+            return [];
+        if (Array.isArray(allergies)) {
+            return allergies.map((item) => String(item).trim()).filter(Boolean);
+        }
+        const trimmed = allergies.trim();
+        if (!trimmed)
+            return [];
+        return trimmed
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
     }
     normalizePhoneNumber(phoneNumber) {
         let cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');

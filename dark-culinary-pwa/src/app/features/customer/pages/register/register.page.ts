@@ -273,7 +273,32 @@ export class RegisterPage implements OnInit {
           },
           error: (err) => {
             this.loading.set(false);
-            this.notifications.error(err?.error?.message ?? 'Could not start session. Please try again.');
+            const message = err?.error?.message as string | undefined;
+            if (err?.status === 409) {
+              this.sessionService.getScanStatus(resolvedTableId, companyGuid).subscribe({
+                next: (status) => {
+                  if (status.hasActiveSession && status.sessionId) {
+                    this.notifications.info('Someone already started this table. Join their session.');
+                    void this.router.navigate(['/customer/register'], {
+                      queryParams: {
+                        c: companyGuid,
+                        t: tableNumberParam || status.tableNumber,
+                        tableId: resolvedTableId,
+                        sid: status.sessionId,
+                      },
+                      queryParamsHandling: '',
+                    });
+                    return;
+                  }
+                  this.notifications.error(message ?? 'Could not start session. Please try again.');
+                },
+                error: () => {
+                  this.notifications.error(message ?? 'Could not start session. Please try again.');
+                },
+              });
+              return;
+            }
+            this.notifications.error(message ?? 'Could not start session. Please try again.');
           },
         });
     };

@@ -25,13 +25,14 @@ export class CustomerSessionsService {
     customerName: string;
     phoneNumber?: string;
     dietaryPreferences?: string[];
-    allergies?: string[];
+    allergies?: string | string[];
     companyId?: string;
     scanLocation?: { lat: number; lng: number };
   }) {
     const normalizedData = {
       ...data,
       phoneNumber: data.phoneNumber ? this.normalizePhoneNumber(data.phoneNumber) : undefined,
+      allergies: this.normalizeAllergies(data.allergies),
     };
 
     let expectedLocation: object | null = null;
@@ -485,6 +486,19 @@ export class CustomerSessionsService {
     });
 
     return sessions.length > 0 ? sessions[0] : null;
+  }
+
+  private normalizeAllergies(allergies?: string | string[]): string[] {
+    if (!allergies) return [];
+    if (Array.isArray(allergies)) {
+      return allergies.map((item) => String(item).trim()).filter(Boolean);
+    }
+    const trimmed = allergies.trim();
+    if (!trimmed) return [];
+    return trimmed
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   private normalizePhoneNumber(phoneNumber: string): string {
