@@ -47,6 +47,7 @@ interface TableOrderDetailItem {
   name: string;
   quantity: number;
   status: string;
+  orderedByName?: string;
   modifiers?: Array<{ groupName: string; optionName: string }>;
   bundleChoices?: Array<{ slotName: string; chosenItemName: string }>;
   notes?: string;
@@ -344,9 +345,13 @@ interface TableSessionDetail {
                   </mat-chip>
                 </div>
                 @for (item of order.items; track item.id) {
-                  <div class="order-item">
+                  <div
+                    class="order-item"
+                    [class.order-item-ready]="isItemReady(item.status)"
+                    [class.order-item-collected]="item.status.toUpperCase() === 'COLLECTED'"
+                  >
                     <div class="order-item-main">
-                      <span>{{ item.name }} × {{ item.quantity }}</span>
+                      <span class="item-name">{{ item.name }} × {{ item.quantity }}</span>
                       <span
                         class="item-status"
                         [ngClass]="'status-' + item.status.toLowerCase()"
@@ -354,6 +359,9 @@ interface TableSessionDetail {
                         {{ item.status | statusLabel }}
                       </span>
                     </div>
+                    @if (isItemReady(item.status)) {
+                      <p class="ready-hint">Ready at pass — collect or mark served</p>
+                    }
                     @if (item.modifiers?.length) {
                       <div class="item-modifiers">
                         <span *ngFor="let mod of item.modifiers" class="modifier-tag" [class.modifier-exclusion]="mod.optionName.startsWith('No ')">{{ mod.optionName }}</span>
@@ -367,26 +375,29 @@ interface TableSessionDetail {
                     @if (item.notes) {
                       <div class="item-notes">{{ item.notes }}</div>
                     }
-                    @if (item.status.toUpperCase() !== 'SERVED' && item.status.toUpperCase() !== 'DELIVERED') {
-                      <div class="item-actions">
-                        @if (item.status.toUpperCase() !== 'COLLECTED') {
+                    <div class="item-footer">
+                      @if (showItemActions(item.status)) {
+                        <div class="item-actions">
+                          @if (item.status.toUpperCase() !== 'COLLECTED') {
+                            <button
+                              mat-flat-button
+                              class="status-btn collected"
+                              (click)="updateItemStatus(order.id, item.id, 'COLLECTED')"
+                            >
+                              Collected
+                            </button>
+                          }
                           <button
-                            mat-button
-                            class="status-btn collected"
-                            (click)="updateItemStatus(order.id, item.id, 'COLLECTED')"
+                            mat-flat-button
+                            class="status-btn served"
+                            (click)="updateItemStatus(order.id, item.id, 'SERVED')"
                           >
-                            Collected
+                            Served
                           </button>
-                        }
-                        <button
-                          mat-button
-                          class="status-btn served"
-                          (click)="updateItemStatus(order.id, item.id, 'SERVED')"
-                        >
-                          Served
-                        </button>
-                      </div>
-                    }
+                        </div>
+                      }
+                      <span class="item-customer">{{ getItemCustomerName(item, order) }}</span>
+                    </div>
                   </div>
                 }
               </div>
@@ -430,26 +441,29 @@ interface TableSessionDetail {
                     @if (item.notes) {
                       <div class="item-notes">{{ item.notes }}</div>
                     }
-                    @if (item.status.toUpperCase() !== 'SERVED' && item.status.toUpperCase() !== 'DELIVERED') {
-                      <div class="item-actions">
-                        @if (item.status.toUpperCase() !== 'COLLECTED') {
+                    <div class="item-footer">
+                      @if (item.status.toUpperCase() !== 'SERVED' && item.status.toUpperCase() !== 'DELIVERED') {
+                        <div class="item-actions">
+                          @if (item.status.toUpperCase() !== 'COLLECTED') {
+                            <button
+                              mat-button
+                              class="status-btn collected"
+                              (click)="updateItemStatus(order.id, item.id, 'COLLECTED')"
+                            >
+                              Collected
+                            </button>
+                          }
                           <button
                             mat-button
-                            class="status-btn collected"
-                            (click)="updateItemStatus(order.id, item.id, 'COLLECTED')"
+                            class="status-btn served"
+                            (click)="updateItemStatus(order.id, item.id, 'SERVED')"
                           >
-                            Collected
+                            Served
                           </button>
-                        }
-                        <button
-                          mat-button
-                          class="status-btn served"
-                          (click)="updateItemStatus(order.id, item.id, 'SERVED')"
-                        >
-                          Served
-                        </button>
-                      </div>
-                    }
+                        </div>
+                      }
+                      <span class="item-customer">{{ getItemCustomerName(item, order) }}</span>
+                    </div>
                   </div>
                 }
               </div>
@@ -839,8 +853,44 @@ interface TableSessionDetail {
         grid-template-columns: 1fr auto;
         gap: 0.5rem 0.75rem;
         margin-top: 0.65rem;
-        padding-top: 0.6rem;
+        padding: 0.6rem 0.15rem 0;
         border-top: 1px dashed var(--border-subtle);
+        transition: box-shadow 200ms ease, border-color 200ms ease, background-color 200ms ease;
+      }
+      .order-item-ready {
+        grid-column: 1 / -1;
+        border: 1px solid rgba(44, 227, 109, 0.55);
+        border-radius: var(--radius-md);
+        padding: 0.75rem;
+        margin-top: 0.75rem;
+        background: rgba(44, 227, 109, 0.07);
+        animation: ready-item-glow 2.2s ease-in-out infinite;
+      }
+      .order-item-collected {
+        border-color: rgba(96, 165, 250, 0.45);
+        background: rgba(96, 165, 250, 0.06);
+        box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.2);
+        animation: none;
+      }
+      @keyframes ready-item-glow {
+        0%, 100% {
+          box-shadow:
+            0 0 0 1px rgba(44, 227, 109, 0.35),
+            0 0 14px rgba(44, 227, 109, 0.18);
+        }
+        50% {
+          box-shadow:
+            0 0 0 2px rgba(44, 227, 109, 0.6),
+            0 0 22px rgba(44, 227, 109, 0.38);
+        }
+      }
+      .ready-hint {
+        grid-column: 1 / -1;
+        margin: 0;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #2ce36d;
+        letter-spacing: 0.01em;
       }
       .order-item-main {
         display: flex;
@@ -848,6 +898,9 @@ interface TableSessionDetail {
         align-items: center;
         gap: var(--space-2);
         min-width: 0;
+      }
+      .item-name {
+        font-weight: 600;
       }
       .item-modifiers {
         display: flex;
@@ -903,19 +956,40 @@ interface TableSessionDetail {
       .item-status.status-delivered {
         color: var(--status-success);
       }
+      .item-footer {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-top: 0.35rem;
+      }
       .item-actions {
         display: inline-flex;
         align-items: center;
         gap: var(--space-2);
-        grid-column: 2 / 3;
-        grid-row: 1 / span 3;
-        align-self: center;
+        flex-wrap: wrap;
+      }
+      .item-customer {
+        margin-left: auto;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 45%;
+      }
+      .order-item-ready .item-customer {
+        color: var(--text-primary);
       }
       .status-btn {
         border-radius: var(--radius-pill);
-        min-height: 34px;
-        padding-inline: 0.7rem;
-        font-size: 0.8rem;
+        min-height: 38px;
+        padding-inline: 1rem;
+        font-size: 0.85rem;
+        font-weight: 600;
         text-transform: none;
       }
       .status-btn.collected {
@@ -925,6 +999,18 @@ interface TableSessionDetail {
       .status-btn.served {
         background-color: var(--status-success-soft);
         color: var(--status-success);
+      }
+      .order-item-ready .status-btn.collected {
+        background-color: #3b82f6;
+        color: #fff;
+      }
+      .order-item-ready .status-btn.served {
+        background-color: #22c55e;
+        color: #fff;
+      }
+      .order-item-collected .status-btn.served {
+        background-color: #22c55e;
+        color: #fff;
       }
       @media (max-width: 760px) {
         .drawer {
@@ -987,11 +1073,34 @@ export class WaiterDashboardPage implements OnInit, OnDestroy {
     if (statuses.length === 0) return 'PENDING';
     if (statuses.every((status) => status === 'DELIVERED')) return 'DELIVERED';
     if (statuses.every((status) => status === 'SERVED' || status === 'DELIVERED')) return 'SERVED';
-    if (statuses.some((status) => status === 'READY')) return 'READY';
-    if (statuses.some((status) => status === 'PREPARING')) return 'PREPARING';
-    if (statuses.some((status) => status === 'PENDING' || status === 'CONFIRMED')) return 'PENDING';
-    if (statuses.some((status) => status === 'COLLECTED')) return 'COLLECTED';
-    return statuses[0];
+
+    const inProgress = statuses.filter(
+      (status) => !['SERVED', 'DELIVERED'].includes(status),
+    );
+    if (inProgress.length === 0) return 'SERVED';
+    if (inProgress.every((status) => status === 'READY')) return 'READY';
+    if (inProgress.some((status) => status === 'PREPARING')) return 'PREPARING';
+    if (inProgress.some((status) => status === 'COLLECTED')) return 'COLLECTED';
+    return 'PENDING';
+  }
+
+  isItemReady(status: string): boolean {
+    return this.normalizeItemStatus(status) === 'READY';
+  }
+
+  showItemActions(status: string): boolean {
+    const normalized = this.normalizeItemStatus(status);
+    return normalized === 'READY' || normalized === 'COLLECTED';
+  }
+
+  getOrderCustomerName(order: TableOrderDetail): string {
+    const name = order.participantDisplayName ?? order.customerName;
+    return name?.trim() || 'Guest';
+  }
+
+  getItemCustomerName(item: TableOrderDetailItem, order: TableOrderDetail): string {
+    const name = item.orderedByName ?? this.getOrderCustomerName(order);
+    return name?.trim() || 'Guest';
   }
 
   readonly drawerActiveOrders = computed(() => {
@@ -1011,7 +1120,7 @@ export class WaiterDashboardPage implements OnInit, OnDestroy {
             this.activeItemStatuses.has((i.status ?? '').toString().toUpperCase()),
           )
           .sort((a, b) => rank(a.status) - rank(b.status));
-        return { ...o, items, status: this.deriveDisplayedOrderStatus(items) };
+        return { ...o, items, status: this.deriveDisplayedOrderStatus(o.items) };
       })
       .filter((o) => o.items.length > 0)
       .sort(
@@ -1260,6 +1369,7 @@ export class WaiterDashboardPage implements OnInit, OnDestroy {
             name: i.menuItem?.name ?? '',
             quantity: i.quantity,
             status: i.status,
+            orderedByName: (i as { orderedByName?: string }).orderedByName,
             modifiers: i.modifiers,
             bundleChoices: i.bundleChoices,
             notes: i.specialInstructions ?? i.notes,
@@ -1372,6 +1482,7 @@ export class WaiterDashboardPage implements OnInit, OnDestroy {
               name: i.menuItem?.name ?? '',
               quantity: i.quantity,
               status: i.status,
+              orderedByName: (i as { orderedByName?: string }).orderedByName,
               modifiers: i.modifiers,
               bundleChoices: i.bundleChoices,
               notes: i.specialInstructions ?? i.notes,

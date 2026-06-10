@@ -754,6 +754,26 @@ export class OrdersService {
     return menuItems.find(item => item.id === menuItemId) || { id: menuItemId, name: 'Unknown Item', price: 0 };
   }
 
+  private resolveItemOrderedByName(
+    item: { claims?: Array<{ participant?: { displayName?: string } | null }> },
+    order: {
+      participant?: { displayName?: string } | null;
+      customerSession?: { customerName?: string } | null;
+    },
+  ): string {
+    const claimNames = (item.claims ?? [])
+      .map((claim) => claim.participant?.displayName?.trim())
+      .filter((name): name is string => !!name);
+    if (claimNames.length > 0) {
+      return [...new Set(claimNames)].join(', ');
+    }
+    return (
+      order.participant?.displayName?.trim() ||
+      order.customerSession?.customerName?.trim() ||
+      'Guest'
+    );
+  }
+
   async getOrdersByTable(tableId: string) {
     const [regularOrders, customerOrders] = await Promise.all([
       this.prisma.order.findMany({
@@ -823,11 +843,15 @@ export class OrdersService {
       id: order.id,
       tableId: order.tableId,
       customerSessionId: order.customerSessionId,
+      customerName: order.customerSession?.customerName || 'Customer',
+      participantDisplayName:
+        order.participant?.displayName ?? order.customerSession?.customerName ?? 'Guest',
       status: order.status,
       total: order.total,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       table: order.table,
+      participantId: order.participantId ?? null,
       items: order.items.map((item) => ({
         id: item.id,
         orderId: order.id,
@@ -838,6 +862,7 @@ export class OrdersService {
         status: item.status,
         createdAt: item.createdAt,
         menuItem: item.menuItem,
+        orderedByName: this.resolveItemOrderedByName(item, order),
         modifiers: item.modifiers?.map((m: any) => ({ groupName: m.modifierGroupName, optionName: m.optionName, priceAdjustment: m.priceAdjustment })) ?? [],
         bundleChoices: item.bundleChoices?.map((bc: any) => ({ slotName: bc.bundleSlot?.name ?? '', chosenItemName: bc.chosenItemName })) ?? [],
         formattedSummary: buildSummary(item),

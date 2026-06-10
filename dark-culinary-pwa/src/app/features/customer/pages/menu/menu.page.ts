@@ -156,7 +156,9 @@ import { AppCurrencyPipe } from '../../../../core/pipes/app-currency.pipe';
         margin: 0;
         padding-left: 1rem;
         padding-right: 1rem;
-        background: var(--bg-canvas);
+        background: var(--bg-nav);
+        backdrop-filter: blur(20px) saturate(1.2);
+        -webkit-backdrop-filter: blur(20px) saturate(1.2);
         border-bottom: 1px solid var(--border-subtle);
       }
       .menu-header-spacer {

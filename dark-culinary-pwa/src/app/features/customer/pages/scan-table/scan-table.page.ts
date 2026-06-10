@@ -8,6 +8,8 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { TopAppBarComponent } from '../../../../shared/components/top-app-bar/top-app-bar.component';
+import { ThemeService } from '../../../../core/services/theme.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -28,6 +30,16 @@ import { take } from 'rxjs';
 const QUICK_TABLE_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const SESSION_KEY = 'dark_culinary_customer_session';
 
+function parseTableLinkParams(
+  params: URLSearchParams,
+): { companyGuid: string | null; tableNumber: string | null; tableId: string | null } {
+  return {
+    companyGuid: params.get('c') ?? params.get('company'),
+    tableNumber: params.get('t') ?? params.get('table'),
+    tableId: params.get('tableId'),
+  };
+}
+
 @Component({
   selector: 'app-scan-table',
   standalone: true,
@@ -35,6 +47,7 @@ const SESSION_KEY = 'dark_culinary_customer_session';
     CommonModule,
     ReactiveFormsModule,
     GlassCardComponent,
+    TopAppBarComponent,
     MatButtonModule,
     MatIconModule,
     MatFormFieldModule,
@@ -42,8 +55,41 @@ const SESSION_KEY = 'dark_culinary_customer_session';
   ],
   template: `
     <div class="scan">
-      <h1 class="dc-title">Find your table</h1>
-      <p class="dc-body">Scan the code on your table stand or enter the table number.</p>
+      <header class="scan-header">
+        <app-top-app-bar
+          title="Find your table"
+          [brandName]="companyName()"
+          [brandLogo]="companyLogo()"
+          [showBack]="true"
+          [glass]="true"
+          (back)="goBack()"
+        />
+      </header>
+      <div class="scan-header-spacer" aria-hidden="true"></div>
+
+      @if (companyName() || companyLogo()) {
+        <div class="brand-hero">
+          @if (companyLogo()) {
+            <img
+              [src]="companyLogo()"
+              [alt]="companyName() || 'Restaurant logo'"
+              class="brand-hero-logo"
+            />
+          } @else {
+            <div class="brand-hero-fallback" aria-hidden="true">
+              <mat-icon>storefront</mat-icon>
+            </div>
+          }
+          @if (companyName()) {
+            <h2 class="brand-hero-name">{{ companyName() }}</h2>
+          }
+          @if (companyAddress()) {
+            <p class="brand-hero-address">{{ companyAddress() }}</p>
+          }
+        </div>
+      }
+
+      <p class="dc-body scan-intro">Scan the code on your table stand or enter the table number.</p>
 
       @if (rejoinSession()) {
         <div class="rejoin-banner">
@@ -153,11 +199,78 @@ const SESSION_KEY = 'dark_culinary_customer_session';
   `,
   styles: [
     `
+      :host {
+        display: block;
+        margin: calc(-1 * var(--space-4));
+        margin-bottom: -5rem;
+      }
       .scan {
-        padding: 1.5rem;
+        padding: 0 1rem 1.5rem;
         display: flex;
         flex-direction: column;
         gap: 1rem;
+      }
+      .scan-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: var(--bg-nav);
+        backdrop-filter: blur(20px) saturate(1.2);
+        -webkit-backdrop-filter: blur(20px) saturate(1.2);
+      }
+      .scan-header-spacer {
+        height: 3.5rem;
+        flex-shrink: 0;
+      }
+      .brand-hero {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        text-align: center;
+        padding: 0.25rem 0 0.5rem;
+      }
+      .brand-hero-logo,
+      .brand-hero-fallback {
+        width: 64px;
+        height: 64px;
+        border-radius: 14px;
+      }
+      .brand-hero-logo {
+        object-fit: cover;
+        border: 1px solid var(--border-subtle);
+        box-shadow: var(--shadow-md);
+      }
+      .brand-hero-fallback {
+        background: var(--accent-primary-soft);
+        color: var(--accent-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .brand-hero-fallback mat-icon {
+        font-size: 1.75rem;
+        width: 1.75rem;
+        height: 1.75rem;
+      }
+      .brand-hero-name {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .brand-hero-address {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        max-width: 20rem;
+      }
+      .scan-intro {
+        margin: 0;
+        text-align: center;
+        color: var(--text-secondary);
       }
       .scanner-frame {
         position: relative;
@@ -282,6 +395,11 @@ export class ScanTablePage implements OnDestroy {
   private readonly storage = inject(StorageService);
   private readonly notifications = inject(NotificationService);
   private readonly bottomSheet = inject(MatBottomSheet);
+  private readonly themeService = inject(ThemeService);
+
+  readonly companyName = signal('');
+  readonly companyLogo = signal<string | null>(null);
+  readonly companyAddress = signal<string | null>(null);
 
   @ViewChild('videoElement') private videoElement?: ElementRef<HTMLVideoElement>;
   private mediaStream: MediaStream | null = null;
@@ -316,20 +434,49 @@ export class ScanTablePage implements OnDestroy {
     void this.router.navigate(['/customer/menu']);
   }
 
+  goBack(): void {
+    void this.router.navigate(['/customer/welcome']);
+  }
+
+  private loadCompanyBranding(companyId: string): void {
+    this.api
+      .get<{
+        name?: string;
+        logo?: string | null;
+        primaryColor?: string | null;
+        secondaryColor?: string | null;
+        address?: string | null;
+      }>(`companies/${companyId}`)
+      .subscribe({
+        next: (company) => {
+          this.companyName.set(company?.name ?? '');
+          this.companyLogo.set(company?.logo ?? null);
+          this.companyAddress.set(company?.address ?? null);
+          if (company?.primaryColor || company?.secondaryColor) {
+            this.themeService.applyCompanyTheme({
+              accentPrimary: company.primaryColor ?? undefined,
+              accentSecondary: company.secondaryColor ?? undefined,
+              logoUrl: company.logo ?? undefined,
+            });
+          }
+        },
+      });
+  }
+
   constructor() {
-    const modeParam = this.route.snapshot.queryParamMap.get('mode');
+    const params = this.route.snapshot.queryParamMap;
+    const modeParam = params.get('mode');
     if (modeParam === 'scan' || modeParam === 'manual') {
       this.mode.set(modeParam);
     }
 
-    const moveTableId = this.route.snapshot.queryParamMap.get('moveTableId');
-    const moveTableNumberRaw = this.route.snapshot.queryParamMap.get('moveTableNumber');
-    const companyGuidFromQuery = this.route.snapshot.queryParamMap.get('c');
+    const moveTableId = params.get('moveTableId');
+    const moveTableNumberRaw = params.get('moveTableNumber');
     const moveTableNumber = Number(moveTableNumberRaw);
     const current =
       this.sessionService.currentSessionSnapshot ??
       this.storage.get<{ id?: string; tableId?: string; companyId?: string }>(SESSION_KEY);
-    const companyGuid = companyGuidFromQuery ?? current?.companyId ?? null;
+    const companyGuid = this.resolveCompanyGuid();
     if (
       moveTableId &&
       companyGuid &&
@@ -343,9 +490,39 @@ export class ScanTablePage implements OnDestroy {
       });
     }
 
+    const qrCompany = params.get('c') ?? params.get('company');
+    const qrTable = params.get('t') ?? params.get('table');
+    const qrTableId = params.get('tableId');
+    if (qrCompany && qrTable && !moveTableId) {
+      void this.router.navigate(['/customer/welcome'], {
+        queryParams: {
+          c: qrCompany,
+          t: qrTable,
+          ...(qrTableId ? { tableId: qrTableId } : {}),
+        },
+        queryParamsHandling: '',
+      });
+      return;
+    }
+
+    if (companyGuid) {
+      this.loadCompanyBranding(companyGuid);
+    }
+
     if (this.mode() === 'scan') {
       this.requestCamera();
     }
+  }
+
+  private resolveCompanyGuid(): string | null {
+    const params = this.route.snapshot.queryParamMap;
+    return (
+      params.get('c') ??
+      params.get('company') ??
+      this.sessionService.currentSessionSnapshot?.companyId ??
+      this.storage.get<{ companyId?: string }>(SESSION_KEY)?.companyId ??
+      null
+    );
   }
 
   setMode(m: 'scan' | 'manual'): void {
@@ -549,9 +726,9 @@ export class ScanTablePage implements OnDestroy {
         }
       }
 
-      const companyGuid = url?.searchParams.get('c');
-      const tableNumber = url?.searchParams.get('t');
-      const tableIdFromQr = url?.searchParams.get('tableId');
+      const { companyGuid, tableNumber, tableId: tableIdFromQr } = url
+        ? parseTableLinkParams(url.searchParams)
+        : { companyGuid: null, tableNumber: null, tableId: null };
       if (!companyGuid || !tableNumber) {
         this.processingScan.set(false);
         this.errorMessage.set('QR code is not a valid table link. Use manual entry instead.');
@@ -592,9 +769,11 @@ export class ScanTablePage implements OnDestroy {
     const tableNumber = this.form.value.tableNumber;
     if (!tableNumber) return;
 
-    const companyGuid = this.route.snapshot.queryParamMap.get('c');
+    const companyGuid = this.resolveCompanyGuid();
     if (!companyGuid) {
-      void this.router.navigate(['/customer/welcome']);
+      this.errorMessage.set(
+        'Restaurant not found. Scan the QR code at your table to link to the right venue.',
+      );
       return;
     }
 

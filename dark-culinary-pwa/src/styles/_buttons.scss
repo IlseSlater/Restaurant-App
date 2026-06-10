@@ -1,0 +1,88 @@
+/* Pill-shaped Material buttons (AURA-inspired) */
+
+.mat-mdc-button-base {
+  --mdc-filled-button-container-shape: var(--btn-radius);
+  --mdc-outlined-button-container-shape: var(--btn-radius);
+  --mdc-text-button-container-shape: var(--btn-radius);
+  --mdc-protected-button-container-shape: var(--btn-radius);
+  border-radius: var(--btn-radius) !important;
+  min-height: var(--btn-min-height);
+  padding-inline: var(--btn-padding-x);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Primary filled (mat-flat-button color="primary") */
+.mat-mdc-unelevated-button.mat-primary,
+.mat-mdc-raised-button.mat-primary {
+  --mdc-filled-button-container-color: var(--btn-primary);
+  --mdc-filled-button-label-text-color: var(--btn-label-color);
+  --mat-filled-button-state-layer-color: var(--btn-label-color);
+  box-shadow: none !important;
+}
+
+.mat-mdc-unelevated-button.mat-primary:not(:disabled):hover,
+.mat-mdc-raised-button.mat-primary:not(:disabled):hover {
+  --mdc-filled-button-container-color: var(--btn-primary-hover);
+}
+
+.mat-mdc-unelevated-button.mat-primary:not(:disabled):active,
+.mat-mdc-raised-button.mat-primary:not(:disabled):active {
+  --mdc-filled-button-container-color: var(--btn-primary-active);
+}
+
+/* Default filled buttons without color attr */
+.mat-mdc-unelevated-button:not(.mat-primary):not(.mat-accent):not(.mat-warn),
+.mat-mdc-raised-button:not(.mat-primary):not(.mat-accent):not(.mat-warn) {
+  --mdc-filled-button-container-color: var(--bg-glass-elevated);
+  --mdc-filled-button-label-text-color: var(--text-primary);
+  box-shadow: none !important;
+}
+
+/* Text / ghost buttons (mat-button) */
+.mat-mdc-button:not(.mat-primary):not(.mat-accent):not(.mat-warn) {
+  --mdc-text-button-label-text-color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  background-color: transparent;
+}
+
+.mat-mdc-button.dc-btn-ghost,
+.ghost-btn.mat-mdc-button {
+  --mdc-text-button-label-text-color: var(--text-primary);
+  border: 1px solid var(--border-glow);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.mat-mdc-button.dc-btn-ghost:not(:disabled):hover,
+.ghost-btn.mat-mdc-button:not(:disabled):hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-glow);
+}
+
+/* Outlined variant */
+.mat-mdc-outlined-button {
+  --mdc-outlined-button-outline-color: var(--border-glow);
+  --mdc-outlined-button-label-text-color: var(--text-primary);
+}
+
+.mat-mdc-outlined-button.mat-primary {
+  --mdc-outlined-button-outline-color: var(--btn-primary);
+  --mdc-outlined-button-label-text-color: var(--btn-primary);
+}
+
+/* Full-width CTAs */
+.dc-btn-block,
+.primary-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Icon + label spacing inside pill buttons */
+.mat-mdc-button-base .mat-icon {
+  margin-inline-end: 0.35rem;
+}
+
+.mat-mdc-button-base .mat-icon:last-child {
+  margin-inline-end: 0;
+  margin-inline-start: 0.35rem;
+}

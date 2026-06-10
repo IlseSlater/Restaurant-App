@@ -22,24 +22,28 @@ export interface TopAppBarAction {
   standalone: true,
   imports: [MatBadgeModule, MatButtonModule, MatIconModule],
   template: `
-    <header class="app-bar" [class.app-bar-glass]="glass">
-      @if (showBack) {
-        <button mat-icon-button type="button" (click)="back.emit()" aria-label="Back">
-          <mat-icon>arrow_back</mat-icon>
-        </button>
+    <header class="app-bar" [class.app-bar-glass]="glass" [class.app-bar-actions-only]="actionsOnly">
+      @if (!actionsOnly) {
+        @if (showBack) {
+          <button mat-icon-button type="button" (click)="back.emit()" aria-label="Back">
+            <mat-icon>arrow_back</mat-icon>
+          </button>
+        }
+        @if (brandLogo || brandName) {
+          <div class="brand-wrap" [attr.aria-label]="brandName || 'Company brand'">
+            @if (brandLogo) {
+              <img [src]="brandLogo" [alt]="brandName || 'Company logo'" class="brand-logo" />
+            } @else {
+              <div class="brand-fallback" aria-hidden="true">
+                <mat-icon>storefront</mat-icon>
+              </div>
+            }
+          </div>
+        }
+        @if (title) {
+          <h1 class="title">{{ title }}</h1>
+        }
       }
-      @if (brandLogo || brandName) {
-        <div class="brand-wrap" [attr.aria-label]="brandName || 'Company brand'">
-          @if (brandLogo) {
-            <img [src]="brandLogo" [alt]="brandName || 'Company logo'" class="brand-logo" />
-          } @else {
-            <div class="brand-fallback" aria-hidden="true">
-              <mat-icon>storefront</mat-icon>
-            </div>
-          }
-        </div>
-      }
-      <h1 class="title">{{ title }}</h1>
       <div class="spacer"></div>
       @for (action of actions; track action.icon + (action.id ?? '')) {
         <button
@@ -63,13 +67,17 @@ export interface TopAppBarAction {
         gap: 0.5rem;
         padding: 0.5rem 0.75rem;
         min-height: 56px;
-        background-color: var(--bg-elevated);
+        background-color: var(--bg-nav);
         border-bottom: 1px solid var(--border-subtle);
+        backdrop-filter: blur(20px) saturate(1.2);
+        -webkit-backdrop-filter: blur(20px) saturate(1.2);
       }
       .app-bar-glass {
         background-color: var(--bg-nav);
-        backdrop-filter: blur(18px);
-        box-shadow: var(--shadow-md);
+        backdrop-filter: blur(24px) saturate(1.25);
+        -webkit-backdrop-filter: blur(24px) saturate(1.25);
+        box-shadow: var(--shadow-card-inset), var(--shadow-sm);
+        border-bottom: 1px solid var(--border-subtle);
       }
       .title {
         margin: 0;
@@ -82,8 +90,16 @@ export interface TopAppBarAction {
         white-space: nowrap;
       }
       .spacer {
-        flex: 0 0 0.5rem;
+        flex: 1 1 auto;
         min-width: 0;
+      }
+      .app-bar-actions-only {
+        min-height: 48px;
+        border-bottom: none;
+        box-shadow: none;
+        background-color: transparent;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
       }
       .brand-wrap {
         display: flex;
@@ -124,6 +140,8 @@ export class TopAppBarComponent {
   @Input() actions: TopAppBarAction[] = [];
 
   @Input() glass = false;
+  /** Hide title/brand; show only trailing actions (e.g. welcome page). */
+  @Input() actionsOnly = false;
 
   @Output() back = new EventEmitter<void>();
   @Output() actionClick = new EventEmitter<TopAppBarAction>();

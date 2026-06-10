@@ -43,6 +43,7 @@ export class ThemeService {
       root.style.setProperty('--accent-primary-soft', this.toSoft(config.accentPrimary));
       root.style.setProperty('--accent-border', this.toBorder(config.accentPrimary));
       root.style.setProperty('--accent-glow', this.toGlow(config.accentPrimary));
+      root.style.setProperty('--btn-primary', config.accentPrimary);
     }
     if (config.accentSecondary) {
       this.accentSecondary.set(config.accentSecondary);

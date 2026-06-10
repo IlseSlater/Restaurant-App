@@ -51,15 +51,6 @@ interface BillRow {
     AppCurrencyPipe,
   ],
   template: `
-    @if (paymentSuccess()) {
-      <div class="celebration">
-        <mat-icon class="celeb-icon">celebration</mat-icon>
-        <h2>Payment received. Thank you!</h2>
-        <button mat-flat-button color="primary" (click)="backToWelcome()">
-          Back to welcome
-        </button>
-      </div>
-    } @else {
       <div class="bill">
         <h1 class="dc-title">Your bill</h1>
         <p class="subtitle" *ngIf="session()">
@@ -165,26 +156,9 @@ interface BillRow {
           <p class="loading-msg">Loading bill…</p>
         }
       </div>
-    }
   `,
   styles: [
     `
-      .celebration {
-        min-height: 60vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 1.5rem;
-        padding: 2rem;
-      }
-      .celeb-icon {
-        font-size: 5rem;
-        width: 5rem;
-        height: 5rem;
-        color: var(--accent-primary);
-        animation: dc-celebrate 420ms ease-out, dc-pulse-glow-success 2.4s 420ms infinite;
-      }
       .bill { padding: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; max-width: 100%; }
       @media (min-width: 600px) {
         .bill { max-width: 560px; margin: 0 auto; width: 100%; }
@@ -292,7 +266,6 @@ export class BillPage implements OnInit, OnDestroy {
   readonly session = signal(this.sessionService.currentSessionSnapshot);
   readonly sessionWithBill = signal<SessionWithBill | null>(null);
   readonly billScope = signal<BillScope>('table');
-  readonly paymentSuccess = signal(false);
   readonly paying = signal(false);
   readonly serviceFeeOptions = SERVICE_FEE_OPTIONS;
   readonly tipPercent = signal(0);
@@ -461,7 +434,7 @@ export class BillPage implements OnInit, OnDestroy {
 
     this.sub = this.ws.on<{ sessionId?: string }>('session_ended').subscribe((payload) => {
       this.sessionService.clearLocalSession(payload?.sessionId);
-      this.paymentSuccess.set(true);
+      this.finishPaymentSuccess();
     });
   }
 
@@ -547,15 +520,15 @@ export class BillPage implements OnInit, OnDestroy {
               .subscribe({
                 next: () => {
                   this.sessionService.clearLocalSession(session.id);
-                  if (!formHtml) this.paymentSuccess.set(true);
+                  if (!formHtml) this.finishPaymentSuccess();
                 },
                 error: () => {
                   this.sessionService.clearLocalSession(session.id);
-                  if (!formHtml) this.paymentSuccess.set(true);
+                  if (!formHtml) this.finishPaymentSuccess();
                 },
               });
           } else if (!formHtml) {
-            this.paymentSuccess.set(true);
+            this.finishPaymentSuccess();
           }
           if (typeof formHtml === 'string') {
             document.body.insertAdjacentHTML('beforeend', formHtml);
@@ -571,7 +544,10 @@ export class BillPage implements OnInit, OnDestroy {
       });
   }
 
-  backToWelcome(): void {
-    void this.router.navigate(['/customer/welcome']);
+  private finishPaymentSuccess(): void {
+    const session = this.sessionService.currentSessionSnapshot;
+    this.sessionService.clearLocalSession(session?.id);
+    this.notifications.success('Payment received. Thank you!');
+    void this.router.navigate(['/customer/welcome'], { replaceUrl: true });
   }
 }
