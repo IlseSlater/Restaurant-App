@@ -7,7 +7,6 @@ import { AsyncPipe } from '@angular/common';
 import { combineLatest, map } from 'rxjs';
 import { CustomerCartService } from '../services/customer-cart.service';
 import { CustomerSessionService } from '../services/customer-session.service';
-import { CustomerHelpService } from '../services/customer-help.service';
 import { CustomerEscalationService } from '../services/customer-escalation.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { FloatingCartChipComponent } from '../../../shared/components/floating-cart-chip/floating-cart-chip.component';
@@ -34,28 +33,62 @@ import { CartWatcherService } from '../services/cart-watcher.service';
       </section>
 
       @if (showBottomNav$ | async) {
-        <nav class="bottom-nav" aria-label="Customer navigation">
-          <a mat-button routerLink="/customer/menu" routerLinkActive="active" aria-label="Menu">
+        <div class="bottom-nav-dock">
+          <nav class="bottom-nav glass-nav" aria-label="Customer navigation">
+            <a
+              mat-button
+              class="nav-item"
+              routerLink="/customer/menu"
+              routerLinkActive="active"
+              aria-label="Menu"
+            >
+              <mat-icon>restaurant_menu</mat-icon>
+              <span>Menu</span>
+            </a>
+            <a
+              mat-button
+              class="nav-item"
+              routerLink="/customer/orders"
+              routerLinkActive="active"
+              aria-label="Orders"
+            >
+              <mat-icon>receipt_long</mat-icon>
+              <span>Orders</span>
+            </a>
+
+            <span class="nav-fab-slot" aria-hidden="true"></span>
+
+            <a
+              mat-button
+              class="nav-item"
+              routerLink="/customer/bill"
+              routerLinkActive="active"
+              aria-label="Bill"
+            >
+              <mat-icon>receipt</mat-icon>
+              <span>Bill</span>
+            </a>
+            <button
+              mat-button
+              type="button"
+              class="nav-item"
+              (click)="leaveTable()"
+              aria-label="Leave table"
+            >
+              <mat-icon>exit_to_app</mat-icon>
+              <span>Leave</span>
+            </button>
+          </nav>
+
+          <a
+            class="nav-fab"
+            routerLink="/customer/menu"
+            routerLinkActive="fab-active"
+            aria-label="Open menu"
+          >
             <mat-icon>restaurant_menu</mat-icon>
-            <span>Menu</span>
           </a>
-          <a mat-button routerLink="/customer/orders" routerLinkActive="active" aria-label="Orders">
-            <mat-icon>receipt_long</mat-icon>
-            <span>Orders</span>
-          </a>
-          <a mat-button routerLink="/customer/bill" routerLinkActive="active" aria-label="Bill">
-            <mat-icon>receipt</mat-icon>
-            <span>Bill</span>
-          </a>
-          <button mat-button type="button" (click)="openHelp()" aria-label="Call for help">
-            <mat-icon>support_agent</mat-icon>
-            <span>Help</span>
-          </button>
-          <button mat-button type="button" (click)="leaveTable()" aria-label="Leave table">
-            <mat-icon>exit_to_app</mat-icon>
-            <span>Leave</span>
-          </button>
-        </nav>
+        </div>
       }
 
       @if (cartSummary$ | async; as summary) {
@@ -72,9 +105,8 @@ import { CartWatcherService } from '../services/cart-watcher.service';
   styles: [
     `
       .customer-shell {
-        height: 100vh;
-        min-height: 100vh;
-        background-color: var(--bg-canvas);
+        height: 100dvh;
+        min-height: 100dvh;
         color: var(--text-primary);
         display: flex;
         flex-direction: column;
@@ -83,55 +115,106 @@ import { CartWatcherService } from '../services/cart-watcher.service';
         flex: 1 1 0;
         min-height: 0;
         padding: var(--space-4);
-        padding-bottom: 5rem;
+        padding-bottom: calc(var(--nav-dock-height) + var(--nav-fab-size) * 0.5 + 1.5rem);
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
       }
-      .bottom-nav {
+      .bottom-nav-dock {
         position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
+        bottom: max(0.75rem, env(safe-area-inset-bottom));
+        left: 1rem;
+        right: 1rem;
         z-index: 100;
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-        padding: 0.5rem 0.75rem;
-        background-color: var(--bg-nav);
-        border-top: 1px solid var(--border-subtle);
-        backdrop-filter: blur(18px);
-        box-shadow: var(--shadow-md);
+        height: var(--nav-dock-height);
+        pointer-events: none;
       }
-      .bottom-nav a,
-      .bottom-nav button {
+      .bottom-nav {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr 3.5rem 1fr 1fr;
+        align-items: center;
+        padding: 0 0.35rem;
+        pointer-events: auto;
+      }
+      .nav-fab-slot {
+        width: var(--nav-fab-size);
+        justify-self: center;
+      }
+      .nav-item {
         color: var(--text-secondary);
-        flex: 1;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 0.25rem;
+        gap: 0.15rem;
         min-height: 44px;
-        font-size: 0.75rem;
+        min-width: 0;
+        padding: 0.25rem 0.15rem;
+        font-size: 0.65rem;
+        line-height: 1.1;
         transition: color 200ms ease;
       }
-      .bottom-nav a.active,
-      .bottom-nav a.router-link-active {
-        color: var(--accent-primary);
+      .nav-item span {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .bottom-nav .mat-icon {
+      .nav-item.active,
+      .nav-item.router-link-active {
+        color: var(--text-primary);
+      }
+      .nav-item .mat-icon {
+        font-size: 1.35rem;
+        width: 1.35rem;
+        height: 1.35rem;
+      }
+      .nav-fab {
+        position: absolute;
+        left: 50%;
+        top: 0;
+        transform: translate(-50%, -35%);
+        width: var(--nav-fab-size);
+        height: var(--nav-fab-size);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 50%;
+        background: var(--btn-primary);
+        color: var(--btn-label-color);
+        text-decoration: none;
+        box-shadow: 0 0 24px rgba(99, 91, 255, 0.35), var(--shadow-md);
+        pointer-events: auto;
+        z-index: 2;
+        transition: transform 200ms ease, box-shadow 200ms ease;
+      }
+      .nav-fab:hover {
+        transform: translate(-50%, -38%) scale(1.04);
+        background: var(--btn-primary-hover);
+        box-shadow: 0 0 28px rgba(99, 91, 255, 0.45), var(--shadow-lg);
+      }
+      .nav-fab:active {
+        transform: translate(-50%, -33%) scale(0.96);
+      }
+      .nav-fab .mat-icon {
         font-size: 1.5rem;
         width: 1.5rem;
         height: 1.5rem;
       }
+      .nav-fab.fab-active {
+        box-shadow: 0 0 28px rgba(99, 91, 255, 0.45), 0 0 0 3px rgba(255, 255, 255, 0.15);
+      }
       .cart-chip-wrap {
         position: fixed;
-        bottom: 4.5rem;
+        bottom: calc(var(--nav-dock-height) + var(--nav-fab-size) * 0.35 + 1rem);
         left: 1rem;
         right: 1rem;
         display: flex;
         justify-content: center;
         pointer-events: none;
+        z-index: 99;
       }
       .cart-chip-wrap app-floating-cart-chip {
         pointer-events: auto;
@@ -148,7 +231,6 @@ export class CustomerLayoutComponent {
   }
   private readonly sessionService = inject(CustomerSessionService);
   private readonly cartService = inject(CustomerCartService);
-  private readonly helpService = inject(CustomerHelpService);
   /** Injected so escalation service is created when customer is in app and can receive ack events */
   private readonly _escalation = inject(CustomerEscalationService);
   private readonly notifications = inject(NotificationService);
@@ -165,15 +247,6 @@ export class CustomerLayoutComponent {
       items.length > 0 ? { count: items.length, total } : null,
     ),
   );
-
-  openHelp(): void {
-    const session = this.sessionService.currentSessionSnapshot;
-    if (!session) return;
-    this.helpService.openHelpSheet({
-      tableId: session.tableId,
-      customerSessionId: session.id,
-    });
-  }
 
   goToCart(): void {
     void this.router.navigate(['/customer/cart']);
@@ -203,7 +276,6 @@ export class CustomerLayoutComponent {
       error: (err: unknown) => {
         const status = err instanceof HttpErrorResponse ? err.status : undefined;
         if (status === 404) {
-          // Most common: stale local session after DB reset/reseed.
           this.sessionService.clearLocalSession(session.id);
           this.notifications.warn('Your session has expired. Please scan the table QR again.');
           void this.router.navigate(['/customer/welcome']);

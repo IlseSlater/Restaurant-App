@@ -1,11 +1,23 @@
 :root {
   /* Surfaces */
-  --bg-canvas: #0e1116;
-  --bg-elevated: #101218;
-  --bg-glass: rgba(37, 40, 56, 0.555);
-  --bg-sheet: rgba(10, 12, 18, 0.98);
-  --bg-nav: rgba(10, 12, 18, 0.9);
-  --border-subtle: rgba(255, 255, 255, 0.06);
+  --bg-canvas: #0a0a0f;
+  --bg-elevated: #14141c;
+  --bg-glass: rgba(255, 255, 255, 0.07);
+  --bg-glass-elevated: rgba(255, 255, 255, 0.1);
+  --bg-sheet: rgba(14, 14, 22, 0.92);
+  --bg-nav: rgba(20, 20, 30, 0.55);
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-glow: rgba(255, 255, 255, 0.14);
+
+  /* Aurora mesh stops */
+  --aura-purple: rgba(124, 58, 237, 0.35);
+  --aura-magenta: rgba(236, 72, 153, 0.28);
+  --aura-blue: rgba(99, 102, 241, 0.3);
+  --aura-teal: rgba(45, 212, 191, 0.15);
+
+  /* Gradient accents (FAB, CTAs) */
+  --gradient-fab: linear-gradient(135deg, #ec4899 0%, #a855f7 45%, #6366f1 100%);
+  --gradient-fab-glow: 0 0 28px rgba(168, 85, 247, 0.45);
 
   /* Typography */
   --text-primary: #f4f5f7;
@@ -43,6 +55,15 @@
   --space-7: 2rem;
   --space-8: 2.5rem;
 
+  /* Buttons (AURA-style pill CTAs) */
+  --btn-primary: #635bff;
+  --btn-primary-hover: #5650e5;
+  --btn-primary-active: #4a45cc;
+  --btn-radius: 999px;
+  --btn-min-height: 3rem;
+  --btn-padding-x: 1.5rem;
+  --btn-label-color: #ffffff;
+
   /* Radius */
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -50,10 +71,16 @@
   --radius-pill: 999px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.65);
-  --shadow-glow: 0 0 0 1px var(--accent-border), 0 0 24px var(--accent-glow);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --shadow-glow: 0 0 0 1px var(--border-glow), 0 0 32px var(--accent-glow);
+  --shadow-card-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  /* Floating nav */
+  --nav-dock-height: 4.25rem;
+  --nav-fab-size: 3.5rem;
+  --nav-dock-radius: 1.75rem;
 
   /* Overlay / z-index */
   --overlay-bg: rgba(0, 0, 0, 0.55);

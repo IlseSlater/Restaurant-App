@@ -38,11 +38,12 @@ import { AppCurrencyPipe } from '../../../core/pipes/app-currency.pipe';
         padding: 0.6rem 1rem;
         border-radius: 999px;
         border: 1px solid var(--border-subtle);
-        background-color: var(--bg-glass);
-        backdrop-filter: blur(16px);
+        background-color: var(--bg-glass-elevated);
+        backdrop-filter: blur(24px) saturate(1.25);
+        -webkit-backdrop-filter: blur(24px) saturate(1.25);
+        box-shadow: var(--shadow-card-inset), var(--shadow-md);
         color: var(--text-primary);
         font-size: 0.95rem;
-        box-shadow: var(--shadow-md);
         cursor: pointer;
         animation: dc-fade-in-up 180ms ease-out;
       }

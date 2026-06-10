@@ -6,9 +6,9 @@ import {
   OnDestroy,
   signal,
 } from '@angular/core';
-import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MatBottomSheet, MatBottomSheetRef, MAT_BOTTOM_SHEET_DATA } from '@angular/material/bottom-sheet';
+import { MatBottomSheet } from '@angular/material/bottom-sheet';
+import { CustomerSession } from '../../../../core/models/customer-session.model';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../../../core/services/api.service';
@@ -16,8 +16,6 @@ import { CustomerSessionService } from '../../services/customer-session.service'
 import { NotificationService } from '../../../../core/services/notification.service';
 import { StorageService } from '../../../../core/services/storage.service';
 import { JoinTableSheetComponent } from '../../components/join-table-sheet/join-table-sheet.component';
-import { GlassCardComponent } from '../../../../shared/components/glass-card/glass-card.component';
-import { TopAppBarComponent } from '../../../../shared/components/top-app-bar/top-app-bar.component';
 import { PressEffectDirective } from '../../../../shared/directives/press-effect.directive';
 import { Subscription } from 'rxjs';
 import { take } from 'rxjs';
@@ -25,262 +23,264 @@ import { take } from 'rxjs';
 const SESSION_KEY = 'dark_culinary_customer_session';
 
 @Component({
-  selector: 'app-about-sheet',
-  standalone: true,
-  imports: [MatButtonModule, MatIconModule],
-  template: `
-    <div class="about-sheet">
-      <h2>About</h2>
-      <p>Order from your table. No queues. No pressure. Scan the QR code at your table or enter your table number to get started.</p>
-      <button mat-flat-button (click)="close()">Close</button>
-    </div>
-  `,
-  styles: [
-    `
-      .about-sheet { padding: 1.25rem; }
-      h2 { margin: 0 0 0.5rem; }
-      p { margin: 0 0 1rem; color: var(--text-secondary); }
-    `,
-  ],
-})
-export class AboutSheetComponent {
-  private readonly ref = inject(MatBottomSheetRef<AboutSheetComponent>);
-  close(): void {
-    this.ref.dismiss();
-  }
-}
-
-export interface ContinueTableSheetData {
-  companyName: string;
-  tableNumber: string;
-  companyGuid: string;
-}
-
-@Component({
-  selector: 'app-continue-table-sheet',
-  standalone: true,
-  imports: [MatButtonModule, MatIconModule],
-  template: `
-    <div class="sheet">
-      <p>We detected Table {{ data.tableNumber }} at {{ data.companyName }}.</p>
-      <button mat-flat-button color="primary" (click)="confirm()">Confirm table</button>
-      <button mat-button (click)="change()">Change table</button>
-    </div>
-  `,
-  styles: [
-    `
-      .sheet { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
-      p { margin: 0; color: var(--text-primary); }
-    `,
-  ],
-})
-export class ContinueTableSheetComponent {
-  readonly data = inject<ContinueTableSheetData>(MAT_BOTTOM_SHEET_DATA);
-  private readonly ref = inject(MatBottomSheetRef<ContinueTableSheetComponent>);
-
-  confirm(): void {
-    this.ref.dismiss(true);
-  }
-  change(): void {
-    this.ref.dismiss(false);
-  }
-}
-
-@Component({
   selector: 'app-customer-welcome',
   standalone: true,
+  host: {
+    class: 'welcome-host',
+  },
   imports: [
-    GlassCardComponent,
-    TopAppBarComponent,
     MatButtonModule,
     MatIconModule,
     PressEffectDirective,
   ],
   template: `
-    <div class="welcome">
-      <header class="welcome-header">
-        <app-top-app-bar
-          [title]="appBarTitle()"
-          [brandName]="companyName()"
-          [brandLogo]="companyLogo()"
-          [showBack]="false"
-          [glass]="true"
-          [actions]="[{ icon: 'info', id: 'about' }]"
-          (actionClick)="openAbout($event)"
-        />
-      </header>
-      <div class="welcome-header-spacer" aria-hidden="true"></div>
-      <div class="hero">
-        <p class="hero-headline dc-title">Order from your table. No queues. No pressure.</p>
+    <div class="welcome" [class.welcome--session]="activeSession()">
+      <div class="welcome-main">
+        <section class="welcome-hero" aria-label="Welcome">
+          <div class="welcome-icon-wrap">
+            @if (activeSession() && companyLogo()) {
+              <img
+                [src]="companyLogo()"
+                [alt]="companyName() || 'Restaurant logo'"
+                class="welcome-icon-img"
+              />
+            } @else {
+              <mat-icon class="welcome-icon" aria-hidden="true">restaurant</mat-icon>
+            }
+          </div>
+          <h1 class="welcome-title">
+            @if (activeSession() && companyName()) {
+              Welcome to {{ companyName() }}
+            } @else {
+              Welcome
+            }
+          </h1>
+          <p class="welcome-subtitle">
+            @if (activeSession()) {
+              Browse the menu, order from your table, and pay when you're ready.
+            } @else {
+              <span class="subtitle-line">To get started.</span>
+              <span class="subtitle-line">Scan the QR code at your table.</span>
+            }
+          </p>
+        </section>
       </div>
+
       @if (activeSession()) {
-        <app-glass-card class="active-session-card">
-          <div class="active-session">
-            <mat-icon>table_restaurant</mat-icon>
-            <div class="active-session-text">
+        <div class="session-view">
+          <div class="session-content">
+            <div class="table-badge">
+              <mat-icon>table_restaurant</mat-icon>
               @if (activeSessionTableLabel(); as label) {
-                <strong>You're at {{ label }}</strong>
+                <span>You're at <strong>{{ label }}</strong></span>
               } @else {
-                <strong>You have an active session</strong>
+                <span>You have an active session</span>
               }
-              <span>Continue to your table or leave.</span>
             </div>
-            <div class="active-session-actions">
-              <button appPressEffect mat-flat-button color="primary" (click)="continueToMenu()">
-                Continue to menu
-              </button>
-              <button appPressEffect mat-button (click)="leaveTableFromWelcome()">
-                Leave table
-              </button>
-            </div>
+
+            <button
+              appPressEffect
+              mat-flat-button
+              color="primary"
+              class="continue-btn"
+              (click)="continueToMenu()"
+            >
+              Continue to menu
+            </button>
           </div>
-        </app-glass-card>
+
+          <div class="session-footer">
+            <button appPressEffect mat-button class="ghost-btn" (click)="goToScan()">
+              <mat-icon>qr_code_scanner</mat-icon>
+              Scan a different table
+            </button>
+          </div>
+        </div>
+      } @else {
+        <div class="guest-view">
+          <div class="actions-sticky">
+            <button appPressEffect mat-flat-button color="primary" class="primary-btn" (click)="goToScan()">
+              <mat-icon>qr_code_scanner</mat-icon>
+              Scan QR Code
+            </button>
+          </div>
+        </div>
       }
-      <div class="feature-cards">
-        <app-glass-card>
-          <div class="feature">
-            <mat-icon>restaurant_menu</mat-icon>
-            <div>
-              <strong>Menu</strong>
-              <span>Browse and order from our full menu.</span>
-            </div>
-          </div>
-        </app-glass-card>
-        <app-glass-card>
-          <div class="feature">
-            <mat-icon>bolt</mat-icon>
-            <div>
-              <strong>Speed</strong>
-              <span>Your order goes straight to the kitchen.</span>
-            </div>
-          </div>
-        </app-glass-card>
-        <app-glass-card>
-          <div class="feature">
-            <mat-icon>credit_card</mat-icon>
-            <div>
-              <strong>Payment</strong>
-              <span>Pay your bill from your phone.</span>
-            </div>
-          </div>
-        </app-glass-card>
-        <app-glass-card>
-          <div class="feature">
-            <mat-icon>support_agent</mat-icon>
-            <div>
-              <strong>Service</strong>
-              <span>Call for help anytime.</span>
-            </div>
-          </div>
-        </app-glass-card>
-      </div>
-      <div class="actions-sticky">
-        <button appPressEffect mat-flat-button color="primary" class="primary-btn" (click)="goToScan('scan')">
-          <mat-icon>qr_code_scanner</mat-icon>
-          Scan QR Code
-        </button>
-        <button appPressEffect mat-button class="ghost-btn" (click)="goToScan('manual')">
-          <mat-icon>dialpad</mat-icon>
-          Enter Table Number
-        </button>
-      </div>
     </div>
   `,
   styles: [
     `
+      :host.welcome-host {
+        display: block;
+        margin: calc(-1 * var(--space-4));
+        margin-bottom: -5rem;
+        min-height: calc(100% + var(--space-4) + 5rem);
+      }
       .welcome {
-        min-height: 100vh;
+        --welcome-bottom-nav: 0px;
+        min-height: 100dvh;
+        height: 100dvh;
+        max-height: 100dvh;
         display: flex;
         flex-direction: column;
-        background: linear-gradient(180deg, var(--bg-canvas) 0%, var(--bg-elevated) 100%);
+        overflow: hidden;
+        background: transparent;
       }
-      .welcome-header {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 100;
-        background: var(--bg-canvas);
+      .welcome.welcome--session {
+        --welcome-bottom-nav: 4.5rem;
+        min-height: calc(100dvh - var(--welcome-bottom-nav));
+        height: calc(100dvh - var(--welcome-bottom-nav));
+        max-height: calc(100dvh - var(--welcome-bottom-nav));
       }
-      .welcome-header-spacer { height: 4rem; flex-shrink: 0; }
-      .hero {
-        padding: 2rem 1.5rem;
+      .welcome-main {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem 1.5rem;
+      }
+      .guest-view,
+      .session-view {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .session-view {
+        padding: 0 1rem 0.75rem;
+        padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+      }
+      .session-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         text-align: center;
+        gap: 1rem;
+        padding: 0 0 0.5rem;
       }
-      .hero-headline {
-        margin: 0;
-        color: var(--text-primary);
-        animation: dc-fade-in-up 260ms ease-out;
+      .session-footer {
+        flex-shrink: 0;
+        padding-top: 0.25rem;
       }
-      .feature-cards {
-        flex: 1;
-        padding: 0 1.5rem;
+      .welcome-hero {
         display: flex;
         flex-direction: column;
-        gap: 0.75rem;
+        align-items: center;
+        text-align: center;
+        animation: dc-fade-in-up 280ms ease-out;
       }
-      .feature {
+      .welcome-icon-wrap {
+        width: 88px;
+        height: 88px;
+        border-radius: 22px;
         display: flex;
-        align-items: flex-start;
-        gap: 1rem;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.25rem;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(20px) saturate(1.2);
+        -webkit-backdrop-filter: blur(20px) saturate(1.2);
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
       }
-      .feature mat-icon {
-        color: var(--accent-primary);
+      .welcome-icon-img {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        object-fit: cover;
+      }
+      .welcome-icon {
+        font-size: 2.5rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        color: #ec4899;
+      }
+      .welcome-title {
+        margin: 0 0 0.75rem;
+        max-width: 20rem;
         font-size: 1.5rem;
-        width: 1.5rem;
-        height: 1.5rem;
+        font-weight: 700;
+        line-height: 1.25;
+        color: var(--text-primary);
       }
-      .feature div {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
+      .welcome-subtitle {
+        margin: 0;
+        max-width: 18rem;
+        font-size: 0.95rem;
+        font-weight: 400;
+        line-height: 1.55;
+        color: var(--text-secondary);
       }
-      .feature strong { font-size: 0.95rem; }
-      .feature span { font-size: 0.85rem; color: var(--text-secondary); }
+      .subtitle-line {
+        display: block;
+      }
+      .table-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1rem;
+        border-radius: 999px;
+        background: var(--accent-primary-soft);
+        color: var(--text-primary);
+        font-size: 0.95rem;
+      }
+      .table-badge mat-icon {
+        color: var(--accent-primary);
+        font-size: 1.25rem;
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+      .table-badge strong {
+        font-weight: 600;
+      }
+      .guest-view {
+        padding: 0 1rem max(0.75rem, env(safe-area-inset-bottom));
+      }
       .actions-sticky {
-        padding: 1.5rem;
         display: flex;
         flex-direction: column;
         gap: 0.75rem;
-        margin-top: auto;
       }
-      .active-session-card { margin: 0 1.5rem 1rem; }
-      .active-session {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
+      @media (max-height: 740px), (max-width: 480px) {
+        .welcome-main {
+          padding: 0.75rem 1rem;
+        }
+        .welcome-icon-wrap {
+          width: 76px;
+          height: 76px;
+          border-radius: 20px;
+          margin-bottom: 1rem;
+        }
+        .welcome-icon-img {
+          width: 44px;
+          height: 44px;
+        }
+        .welcome-icon {
+          font-size: 2rem;
+          width: 2rem;
+          height: 2rem;
+        }
+        .welcome-title {
+          font-size: 1.3rem;
+        }
+        .welcome-subtitle {
+          font-size: 0.875rem;
+        }
+        .session-content {
+          gap: 0.75rem;
+        }
       }
-      .active-session mat-icon {
-        color: var(--accent-primary);
-        font-size: 2rem;
-        width: 2rem;
-        height: 2rem;
-      }
-      .active-session-text {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-      }
-      .active-session-text strong { font-size: 1rem; }
-      .active-session-text span { font-size: 0.875rem; color: var(--text-secondary); }
-      .active-session-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-      .active-session-actions button { flex: 1; min-width: 120px; }
-      .primary-btn, .ghost-btn {
-        width: 100%;
+      .continue-btn {
+        width: auto;
+        min-width: 11rem;
+        max-width: 14rem;
+        align-self: center;
         justify-content: center;
       }
+      .guest-view .primary-btn,
       .ghost-btn {
-        border: 1px solid var(--accent-secondary);
-        color: var(--accent-secondary);
-        transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
-      }
-      .ghost-btn:hover {
-        background-color: var(--accent-primary-soft);
-        border-color: var(--accent-secondary);
+        width: 100%;
+        justify-content: center;
       }
     `,
   ],
@@ -298,7 +298,6 @@ export class WelcomePage implements OnInit, OnDestroy {
 
   companyName = signal<string>('');
   companyLogo = signal<string | null>(null);
-  appBarTitle = signal<string>('Welcome');
   /** Current session in storage (so we show "previous session" card when they land on welcome). */
   readonly activeSession = signal(this.sessionService.currentSessionSnapshot);
   /** Table label for active session (e.g. "Table 5") from session-with-bill. */
@@ -308,6 +307,9 @@ export class WelcomePage implements OnInit, OnDestroy {
     this.sessionSub = this.sessionService.currentSession$.subscribe((s) => {
       this.activeSession.set(s);
       if (s?.id) {
+        if (s.companyId) {
+          this.loadCompanyBranding(s.companyId);
+        }
         this.sessionService.getSessionWithBill(s.id).subscribe({
           next: (swb) => {
             const num = swb?.table?.number;
@@ -317,32 +319,33 @@ export class WelcomePage implements OnInit, OnDestroy {
         });
       } else {
         this.activeSessionTableLabel.set(null);
+        this.companyName.set('');
+        this.companyLogo.set(null);
       }
     });
 
     const c = this.route.snapshot.queryParamMap.get('c');
     const t = this.route.snapshot.queryParamMap.get('t');
+
     if (c && t) {
-      this.api.get<{ name?: string; logo?: string | null }>(`companies/${c}`).subscribe({
-        next: (company) => {
-          this.companyName.set(company?.name ?? 'the restaurant');
-          this.companyLogo.set(company?.logo ?? null);
-          this.appBarTitle.set(`Welcome to ${company?.name ?? 'the restaurant'}`);
-          this.openContinueTableSheet(company?.name ?? 'the restaurant', t);
-        },
-        error: () => {
-          this.openContinueTableSheet('the restaurant', t);
-        },
-      });
-    } else if (c) {
-      this.api.get<{ name?: string; logo?: string | null }>(`companies/${c}`).subscribe({
-        next: (company) => {
-          this.companyName.set(company?.name ?? '');
-          this.companyLogo.set(company?.logo ?? null);
-          this.appBarTitle.set(company?.name ? `Welcome to ${company.name}` : 'Welcome');
-        },
-      });
+      this.startTableArrivalFlow(c, t);
     }
+  }
+
+  private loadCompanyBranding(companyId: string): void {
+    this.api.get<{ name?: string; logo?: string | null }>(`companies/${companyId}`).subscribe({
+      next: (company) => this.applyCompanyBranding(company),
+      error: () => this.applyCompanyBranding(null),
+    });
+  }
+
+  private applyCompanyBranding(
+    company: { name?: string; logo?: string | null } | null,
+    fallbackName?: string,
+  ): void {
+    const name = company?.name ?? fallbackName ?? '';
+    this.companyName.set(name);
+    this.companyLogo.set(company?.logo ?? null);
   }
 
   private proceedToScanStatus(tableId: string, companyGuid: string, tableNumber: string): void {
@@ -353,7 +356,7 @@ export class WelcomePage implements OnInit, OnDestroy {
       void this.router.navigate(['/customer/scan-table'], {
         queryParams: {
           c: companyGuid,
-          mode: 'manual',
+          mode: 'scan',
           moveTableId: tableId,
           moveTableNumber: String(tableNumber),
         },
@@ -393,7 +396,7 @@ export class WelcomePage implements OnInit, OnDestroy {
             void this.router.navigate(['/customer/scan-table'], {
               queryParams: {
                 c: companyGuid,
-                mode: 'manual',
+                mode: 'scan',
                 moveTableId: tableId,
                 moveTableNumber: String(targetTableLabel),
               },
@@ -416,134 +419,107 @@ export class WelcomePage implements OnInit, OnDestroy {
     });
   }
 
-  private openContinueTableSheet(companyName: string, tableNumber: string): void {
-    const companyGuid = this.route.snapshot.queryParamMap.get('c');
+  /** QR deep-link: skip confirmation sheet; start fresh unless an unpaid session blocks. */
+  private startTableArrivalFlow(companyGuid: string, tableNumber: string): void {
     const tableIdFromQuery = this.route.snapshot.queryParamMap.get('tableId');
-    const ref = this.bottomSheet.open(ContinueTableSheetComponent, {
-      data: { companyName, tableNumber, companyGuid: companyGuid ?? '' },
-      panelClass: 'dc-continue-table-sheet',
-    });
-    ref.afterDismissed().subscribe((result) => {
-      if (result === true && companyGuid) {
-        if (tableIdFromQuery) {
-          const session = this.sessionService.currentSessionSnapshot;
-          if (session?.tableId === tableIdFromQuery) {
-            this.sessionService.checkCanLeave(session).pipe(take(1)).subscribe({
-              next: (leaveResult) => {
-                if (!leaveResult.allowed) {
-                  this.notifications.warn(
-                    'You already have an active session at this table. Please pay your bill first.',
-                  );
-                  void this.router.navigate(['/customer/bill']);
-                  return;
-                }
-                this.proceedToScanStatus(tableIdFromQuery, companyGuid, tableNumber);
-              },
-              error: () => this.proceedToScanStatus(tableIdFromQuery, companyGuid, tableNumber),
-            });
-            return;
-          }
-          this.proceedToScanStatus(tableIdFromQuery, companyGuid, tableNumber);
+    const session = this.sessionService.currentSessionSnapshot;
+
+    const runFlow = (tableId?: string) => {
+      this.stripTableQueryParams();
+      if (tableId) {
+        this.proceedToScanStatus(tableId, companyGuid, tableNumber);
+        return;
+      }
+      this.resolveTableIdAndProceed(companyGuid, tableNumber);
+    };
+
+    if (!session?.id) {
+      runFlow(tableIdFromQuery ?? undefined);
+      return;
+    }
+
+    if (tableIdFromQuery && session.tableId === tableIdFromQuery) {
+      this.clearSessionIfPaidThen(session, () => runFlow(tableIdFromQuery));
+      return;
+    }
+
+    runFlow(tableIdFromQuery ?? undefined);
+  }
+
+  private clearSessionIfPaidThen(session: CustomerSession, then: () => void): void {
+    this.sessionService.checkCanLeave(session).pipe(take(1)).subscribe({
+      next: (leaveResult) => {
+        if (!leaveResult.allowed) {
+          this.notifications.warn('Please pay your bill before starting a new visit.');
+          void this.router.navigate(['/customer/bill']);
           return;
         }
-
-        this.api.get<{ id: string; number: number }[]>(`tables`, { companyId: companyGuid }).subscribe({
-          next: (tables) => {
-            const list = Array.isArray(tables) ? tables : [];
-            const table = list.find(
-              (tb) => String(tb.number) === tableNumber || tb.id === tableNumber
-            );
-            const tableId = table?.id;
-            if (!tableId) {
-              void this.router.navigate(['/customer/register'], {
-                queryParams: { c: companyGuid, t: tableNumber },
-                queryParamsHandling: '',
-              });
-              return;
-            }
-            const session = this.sessionService.currentSessionSnapshot;
-            if (session?.tableId === tableId) {
-              this.sessionService.checkCanLeave(session).pipe(take(1)).subscribe({
-                next: (result) => {
-                  if (!result.allowed) {
-                    this.notifications.warn(
-                      'You already have an active session at this table. Please pay your bill first.',
-                    );
-                    void this.router.navigate(['/customer/bill']);
-                    return;
-                  }
-                  this.proceedToScanStatus(tableId, companyGuid, tableNumber);
-                },
-                error: () => this.proceedToScanStatus(tableId, companyGuid, tableNumber),
-              });
-              return;
-            }
-            this.proceedToScanStatus(tableId, companyGuid, tableNumber);
-          },
-          error: () => {
-            void this.router.navigate(['/customer/register'], {
-              queryParams: { c: companyGuid, t: tableNumber },
-              queryParamsHandling: '',
-            });
-          },
-        });
-      } else if (result === false) {
-        void this.router.navigate(['/customer/scan-table']);
-      }
+        this.sessionService.clearLocalSession(session.id);
+        then();
+      },
+      error: () => {
+        this.sessionService.clearLocalSession(session.id);
+        then();
+      },
     });
   }
 
-  openAbout(action: { icon: string; id?: string }): void {
-    if (action.id === 'about') {
-      this.bottomSheet.open(AboutSheetComponent, { panelClass: 'dc-about-sheet' });
-    }
+  private resolveTableIdAndProceed(companyGuid: string, tableNumber: string): void {
+    this.api.get<{ id: string; number: number }[]>(`tables`, { companyId: companyGuid }).subscribe({
+      next: (tables) => {
+        const list = Array.isArray(tables) ? tables : [];
+        const table = list.find(
+          (tb) => String(tb.number) === tableNumber || tb.id === tableNumber,
+        );
+        if (!table?.id) {
+          void this.router.navigate(['/customer/register'], {
+            queryParams: { c: companyGuid, t: tableNumber },
+            queryParamsHandling: '',
+          });
+          return;
+        }
+        const session = this.sessionService.currentSessionSnapshot;
+        if (session?.tableId === table.id && session.id) {
+          this.clearSessionIfPaidThen(session, () =>
+            this.proceedToScanStatus(table.id, companyGuid, tableNumber),
+          );
+          return;
+        }
+        this.proceedToScanStatus(table.id, companyGuid, tableNumber);
+      },
+      error: () => {
+        void this.router.navigate(['/customer/register'], {
+          queryParams: { c: companyGuid, t: tableNumber },
+          queryParamsHandling: '',
+        });
+      },
+    });
   }
 
-  goToScan(mode: 'scan' | 'manual'): void {
+  private stripTableQueryParams(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { t: null, tableId: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  goToScan(): void {
+    const companyId =
+      this.route.snapshot.queryParamMap.get('c') ??
+      this.sessionService.currentSessionSnapshot?.companyId ??
+      null;
     void this.router.navigate(['/customer/scan-table'], {
-      queryParams: { mode },
+      queryParams: {
+        mode: 'scan',
+        ...(companyId ? { c: companyId } : {}),
+      },
     });
   }
 
   continueToMenu(): void {
     void this.router.navigate(['/customer/menu']);
-  }
-
-  leaveTableFromWelcome(): void {
-    const session = this.sessionService.currentSessionSnapshot;
-    if (!session?.id) return;
-    this.sessionService.checkCanLeave(session).subscribe({
-      next: (result) => {
-        if (result.allowed) {
-          this.sessionService.clearLocalSession(session.id);
-          this.activeSession.set(null);
-          this.activeSessionTableLabel.set(null);
-        } else {
-          const goToBill = window.confirm(
-            'You still have an outstanding bill. Press OK to pay now, or Cancel to leave and scan a new table.',
-          );
-          if (goToBill) {
-            void this.router.navigate(['/customer/bill']);
-            return;
-          }
-          this.sessionService.clearLocalSession(session.id);
-          this.activeSession.set(null);
-          this.activeSessionTableLabel.set(null);
-          void this.router.navigate(['/customer/scan-table'], { queryParams: { mode: 'scan' } });
-        }
-      },
-      error: (err: unknown) => {
-        const status = err instanceof HttpErrorResponse ? err.status : undefined;
-        if (status === 404) {
-          this.sessionService.clearLocalSession(session.id);
-          this.activeSession.set(null);
-          this.activeSessionTableLabel.set(null);
-          this.notifications.warn('Your session has expired. Please scan the table QR again.');
-          return;
-        }
-        this.notifications.error('Could not check bill status. Try again.');
-      },
-    });
   }
 
   ngOnDestroy(): void {

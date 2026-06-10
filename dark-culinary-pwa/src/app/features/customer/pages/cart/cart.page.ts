@@ -146,7 +146,9 @@ const SERVICE_FEE_OPTIONS = [0, 10, 15, 18, 20];
         left: 0;
         right: 0;
         z-index: 100;
-        background: var(--bg-canvas);
+        background: var(--bg-nav);
+        backdrop-filter: blur(20px) saturate(1.2);
+        -webkit-backdrop-filter: blur(20px) saturate(1.2);
       }
       .cart-header-spacer { height: 4rem; flex-shrink: 0; }
       .list { padding: 0 1rem; }

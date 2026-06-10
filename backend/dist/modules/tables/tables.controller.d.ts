@@ -4,31 +4,31 @@ export declare class TablesController {
     constructor(tablesService: TablesService);
     getAllTables(companyId?: string): Promise<{
         number: number;
+        id: string;
         companyId: string;
+        qrCode: string;
         status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
-        id: string;
-        qrCode: string;
         createdAt: Date;
         updatedAt: Date;
     }[]>;
     getTable(id: string): Promise<{
         number: number;
+        id: string;
         companyId: string;
+        qrCode: string;
         status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
-        id: string;
-        qrCode: string;
         createdAt: Date;
         updatedAt: Date;
     } | null>;
     getTableByQRCode(qrCode: string): Promise<{
         number: number;
+        id: string;
         companyId: string;
+        qrCode: string;
         status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
-        id: string;
-        qrCode: string;
         createdAt: Date;
         updatedAt: Date;
     }>;
@@ -39,21 +39,21 @@ export declare class TablesController {
         status?: string;
     }): Promise<{
         number: number;
+        id: string;
         companyId: string;
+        qrCode: string;
         status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
-        id: string;
-        qrCode: string;
         createdAt: Date;
         updatedAt: Date;
     }>;
     updateTable(id: string, updateDto: any): Promise<{
         number: number;
+        id: string;
         companyId: string;
+        qrCode: string;
         status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
-        id: string;
-        qrCode: string;
         createdAt: Date;
         updatedAt: Date;
     }>;
@@ -61,11 +61,11 @@ export declare class TablesController {
         status: string;
     }): Promise<{
         number: number;
+        id: string;
         companyId: string;
+        qrCode: string;
         status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
-        id: string;
-        qrCode: string;
         createdAt: Date;
         updatedAt: Date;
     }>;
@@ -73,11 +73,11 @@ export declare class TablesController {
         waiterId: string;
     }): Promise<{
         number: number;
+        id: string;
         companyId: string;
+        qrCode: string;
         status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
-        id: string;
-        qrCode: string;
         createdAt: Date;
         updatedAt: Date;
     }>;
@@ -87,11 +87,11 @@ export declare class TablesController {
     }>;
     deleteTable(id: string): Promise<{
         number: number;
+        id: string;
         companyId: string;
+        qrCode: string;
         status: import(".prisma/client").$Enums.TableStatus;
         waiterId: string | null;
-        id: string;
-        qrCode: string;
         createdAt: Date;
         updatedAt: Date;
     }>;

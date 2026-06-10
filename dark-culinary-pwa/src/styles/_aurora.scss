@@ -1,0 +1,49 @@
+/* Aurora / mesh gradient background (AURA-inspired) */
+
+.aura-shell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  background-color: var(--bg-canvas);
+}
+
+.aura-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 10%, var(--aura-purple) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 55% at 85% 20%, var(--aura-magenta) 0%, transparent 50%),
+    radial-gradient(ellipse 65% 50% at 50% 85%, var(--aura-blue) 0%, transparent 55%),
+    radial-gradient(ellipse 45% 40% at 70% 60%, var(--aura-teal) 0%, transparent 50%),
+    var(--bg-canvas);
+}
+
+.aura-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+.aura-shell > :not(.aura-bg) {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .aura-bg {
+    animation: aura-drift 18s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes aura-drift {
+  0% {
+    filter: hue-rotate(0deg) brightness(1);
+  }
+  100% {
+    filter: hue-rotate(12deg) brightness(1.05);
+  }
+}

@@ -135,7 +135,7 @@ let TablesService = class TablesService {
             throw new Error('Table not found');
         }
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
-        const scanUrl = `${frontendUrl}/customer/scan-table?company=${company.id}&restaurant=${company.slug}&table=${table.number}`;
+        const scanUrl = `${frontendUrl}/customer/welcome?c=${company.id}&t=${table.number}&tableId=${table.id}`;
         const qrData = {
             companyId: company.id,
             companyGuid: company.id,
