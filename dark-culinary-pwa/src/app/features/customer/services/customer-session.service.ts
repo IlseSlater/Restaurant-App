@@ -41,6 +41,21 @@ export interface PaymentStatusResponse {
   participants: { participantId: string; displayName: string; paid: boolean; paidBy?: string }[];
 }
 
+function allergiesForApi(value?: string | string[]): string[] | undefined {
+  if (!value) return undefined;
+  if (Array.isArray(value)) {
+    const items = value.map((item) => String(item).trim()).filter(Boolean);
+    return items.length ? items : undefined;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const items = trimmed
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items.length ? items : undefined;
+}
+
 function withParticipantId(session: CustomerSession & { participants?: { id: string; displayName: string; isCreator: boolean }[] }): CustomerSession {
   if (!session || session.participantId) return session as CustomerSession;
   const creator = session.participants?.find((p) => p.isCreator);
@@ -146,7 +161,7 @@ export class CustomerSessionService {
         customerName: payload.customerName,
         phoneNumber: payload.phoneNumber ?? undefined,
         dietaryPreferences: payload.dietaryPreferences ?? undefined,
-        allergies: payload.allergies ?? undefined,
+        allergies: allergiesForApi(payload.allergies),
       })
       .pipe(
         map(withParticipantId),

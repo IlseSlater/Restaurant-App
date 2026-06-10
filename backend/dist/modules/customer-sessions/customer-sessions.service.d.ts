@@ -10,7 +10,7 @@ export declare class CustomerSessionsService {
         customerName: string;
         phoneNumber?: string;
         dietaryPreferences?: string[];
-        allergies?: string[];
+        allergies?: string | string[];
         companyId?: string;
         scanLocation?: {
             lat: number;
@@ -430,6 +430,7 @@ export declare class CustomerSessionsService {
         billPaidAt: Date | null;
         expiryReason: string | null;
     }) | null>;
+    private normalizeAllergies;
     private normalizePhoneNumber;
     validateSessionLocation(sessionId: string, currentLat: number, currentLng: number): Promise<boolean>;
     endPreviousSessionsOnNewScan(phoneNumber: string, newCompanyId: string): Promise<void>;
