@@ -24,15 +24,28 @@ let CustomerSessionsService = class CustomerSessionsService {
         this.webSocketGateway = webSocketGateway;
     }
     async createSession(data) {
+        const companyId = data.companyId?.trim();
+        if (!companyId) {
+            throw new common_1.ConflictException('companyId is required to create a customer session');
+        }
+        const table = await this.prisma.table.findFirst({
+            where: { id: data.tableId, companyId },
+            select: { id: true, number: true },
+        });
+        if (!table) {
+            throw new common_1.NotFoundException('Table not found. Please scan the QR code at your table again.');
+        }
         const normalizedData = {
             ...data,
+            tableId: table.id,
+            companyId,
             phoneNumber: data.phoneNumber ? this.normalizePhoneNumber(data.phoneNumber) : undefined,
             allergies: this.normalizeAllergies(data.allergies),
         };
         let expectedLocation = null;
-        if (data.companyId) {
+        if (companyId) {
             const company = await this.prisma.company.findUnique({
-                where: { id: data.companyId },
+                where: { id: companyId },
             });
             if (company && company.latitude && company.longitude) {
                 expectedLocation = {
@@ -48,10 +61,6 @@ let CustomerSessionsService = class CustomerSessionsService {
                 });
                 if (existing) {
                     throw new common_1.ConflictException('Table already has an active session. Join instead?');
-                }
-                const companyId = normalizedData.companyId ?? data.companyId;
-                if (!companyId) {
-                    throw new Error('companyId is required to create a customer session');
                 }
                 const session = await tx.customerSession.create({
                     data: {
@@ -84,10 +93,15 @@ let CustomerSessionsService = class CustomerSessionsService {
             }, { isolationLevel: client_1.Prisma.TransactionIsolationLevel.Serializable });
         }
         catch (err) {
-            if (err instanceof common_1.ConflictException)
+            if (err instanceof common_1.ConflictException || err instanceof common_1.NotFoundException)
                 throw err;
-            if (err && typeof err === 'object' && 'code' in err && err.code === 'P2034') {
-                throw new common_1.ConflictException('Table already has an active session. Join instead?');
+            if (err && typeof err === 'object' && 'code' in err) {
+                if (err.code === 'P2034') {
+                    throw new common_1.ConflictException('Table already has an active session. Join instead?');
+                }
+                if (err.code === 'P2003') {
+                    throw new common_1.NotFoundException('Table not found. Please scan the QR code at your table again.');
+                }
             }
             throw err;
         }

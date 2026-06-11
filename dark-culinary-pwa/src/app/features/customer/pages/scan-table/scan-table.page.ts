@@ -1,4 +1,5 @@
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
   NgZone,
@@ -11,24 +12,21 @@ import {
 import { TopAppBarComponent } from '../../../../shared/components/top-app-bar/top-app-bar.component';
 import { ThemeService } from '../../../../core/services/theme.service';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { ApiService } from '../../../../core/services/api.service';
 import { HapticService } from '../../../../core/services/haptic.service';
 import { CustomerSessionService } from '../../services/customer-session.service';
-import { CustomerTableArrivalService } from '../../services/customer-table-arrival.service';
+import {
+  CustomerTableArrivalService,
+  TableQrArrivalInput,
+} from '../../services/customer-table-arrival.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { StorageService } from '../../../../core/services/storage.service';
-import { MatBottomSheet } from '@angular/material/bottom-sheet';
-import { JoinTableSheetComponent } from '../../components/join-table-sheet/join-table-sheet.component';
 import { GlassCardComponent } from '../../../../shared/components/glass-card/glass-card.component';
 import { take } from 'rxjs';
 
-const QUICK_TABLE_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const SESSION_KEY = 'dark_culinary_customer_session';
 
 function parseTableLinkParams(
@@ -46,13 +44,10 @@ function parseTableLinkParams(
   standalone: true,
   imports: [
     CommonModule,
-    ReactiveFormsModule,
     GlassCardComponent,
     TopAppBarComponent,
     MatButtonModule,
     MatIconModule,
-    MatFormFieldModule,
-    MatInputModule,
   ],
   template: `
     <div class="scan">
@@ -90,7 +85,7 @@ function parseTableLinkParams(
         </div>
       }
 
-      <p class="dc-body scan-intro">Scan the code on your table stand or enter the table number.</p>
+      <p class="dc-body scan-intro">Scan the QR code on your table stand to get started.</p>
 
       @if (rejoinSession()) {
         <div class="rejoin-banner">
@@ -115,7 +110,7 @@ function parseTableLinkParams(
         </app-glass-card>
       }
 
-      @if (mode() === 'scan') {
+      @if (!pendingTableMove()) {
         <app-glass-card>
           <div class="scanner-frame">
             <video
@@ -140,61 +135,13 @@ function parseTableLinkParams(
               }
             </div>
           </div>
-          <button mat-button type="button" class="toggle-manual" (click)="setMode('manual')">
-            <mat-icon>dialpad</mat-icon>
-            Enter table number instead
-          </button>
-        </app-glass-card>
-      } @else if (!rejoinSession()) {
-        <app-glass-card>
-          <div class="manual">
-            <button mat-button type="button" class="toggle-scan" (click)="setMode('scan')">
-              <mat-icon>qr_code_scanner</mat-icon>
-              Scan QR instead
-            </button>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Table number</mat-label>
-              <input
-                matInput
-                type="number"
-                [formControl]="form.controls.tableNumber"
-                placeholder="e.g. 5"
-              />
-            </mat-form-field>
-            <div class="quick-select">
-              @for (n of quickTableNumbers; track n) {
-                <button
-                  mat-mini-fab
-                  [class.selected]="selectedQuickTable() === n"
-                  type="button"
-                  (click)="selectQuickTable(n)"
-                >
-                  {{ n }}
-                </button>
-              }
+          @if (errorMessage()) {
+            <div class="error-chip" role="alert">
+              <mat-icon>error</mat-icon>
+              {{ errorMessage() }}
             </div>
-            @if (errorMessage()) {
-              <div class="error-chip" role="alert">
-                <mat-icon>error</mat-icon>
-                {{ errorMessage() }}
-              </div>
-            }
-            <button
-              mat-flat-button
-              color="primary"
-              [disabled]="form.invalid"
-              (click)="continue()"
-            >
-              <mat-icon>arrow_forward</mat-icon>
-              Continue
-            </button>
-          </div>
+          }
         </app-glass-card>
-      } @else {
-        <button mat-flat-button color="primary" type="button" class="scan-cta" (click)="setMode('scan')">
-          <mat-icon>qr_code_scanner</mat-icon>
-          Scan Table QR Code
-        </button>
       }
     </div>
   `,
@@ -322,29 +269,11 @@ function parseTableLinkParams(
         color: var(--text-secondary);
         font-size: 0.9rem;
       }
-      .toggle-manual, .toggle-scan {
-        margin-top: 1rem;
-        width: 100%;
-      }
-      .manual {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-      }
-      .full-width { width: 100%; }
-      .quick-select {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-      .quick-select button.selected {
-        background-color: var(--accent-primary);
-        color: var(--text-inverse);
-      }
       .error-chip {
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
+        margin-top: 1rem;
         padding: 0.5rem 0.75rem;
         border-radius: 8px;
         background-color: var(--status-error-soft);
@@ -370,9 +299,6 @@ function parseTableLinkParams(
       .rejoin-banner button {
         width: 100%;
       }
-      .scan-cta {
-        width: 100%;
-      }
       .move-card {
         display: flex;
         flex-direction: column;
@@ -385,10 +311,9 @@ function parseTableLinkParams(
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ScanTablePage implements OnDestroy {
+export class ScanTablePage implements OnDestroy, AfterViewInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly fb = inject(FormBuilder);
   private readonly api = inject(ApiService);
   private readonly haptics = inject(HapticService);
   private readonly ngZone = inject(NgZone);
@@ -396,7 +321,6 @@ export class ScanTablePage implements OnDestroy {
   private readonly tableArrival = inject(CustomerTableArrivalService);
   private readonly storage = inject(StorageService);
   private readonly notifications = inject(NotificationService);
-  private readonly bottomSheet = inject(MatBottomSheet);
   private readonly themeService = inject(ThemeService);
 
   readonly companyName = signal('');
@@ -407,18 +331,12 @@ export class ScanTablePage implements OnDestroy {
   private mediaStream: MediaStream | null = null;
   private scanFrameId: number | null = null;
   private handlingQr = false;
+  private pendingQrArrival: TableQrArrivalInput | null = null;
 
-  readonly quickTableNumbers = QUICK_TABLE_NUMBERS;
-  readonly mode = signal<'scan' | 'manual'>('manual');
   readonly cameraAllowed = signal(false);
   readonly processingScan = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly selectedQuickTable = signal<number | null>(null);
   readonly pendingTableMove = signal<{ tableId: string; tableNumber: number; companyGuid: string } | null>(null);
-
-  form = this.fb.group({
-    tableNumber: ['', [Validators.required]],
-  });
 
   rejoinSession(): { customerName: string; tableNumber: string } | null {
     const session = this.sessionService.currentSessionSnapshot;
@@ -467,11 +385,6 @@ export class ScanTablePage implements OnDestroy {
 
   constructor() {
     const params = this.route.snapshot.queryParamMap;
-    const modeParam = params.get('mode');
-    if (modeParam === 'scan' || modeParam === 'manual') {
-      this.mode.set(modeParam);
-    }
-
     const moveTableId = params.get('moveTableId');
     const moveTableNumberRaw = params.get('moveTableNumber');
     const moveTableNumber = Number(moveTableNumberRaw);
@@ -496,23 +409,35 @@ export class ScanTablePage implements OnDestroy {
     const qrTable = params.get('t') ?? params.get('table');
     const qrTableId = params.get('tableId');
     if (qrCompany && qrTable && !moveTableId) {
-      void this.router.navigate(['/customer/welcome'], {
-        queryParams: {
-          c: qrCompany,
-          t: qrTable,
-          ...(qrTableId ? { tableId: qrTableId } : {}),
-        },
-        queryParamsHandling: '',
-      });
+      this.pendingQrArrival = {
+        companyGuid: qrCompany,
+        tableNumber: qrTable,
+        tableId: qrTableId,
+      };
       return;
     }
 
     if (companyGuid) {
       this.loadCompanyBranding(companyGuid);
     }
+  }
 
-    if (this.mode() === 'scan') {
-      this.requestCamera();
+  ngAfterViewInit(): void {
+    if (this.pendingQrArrival) {
+      const arrival = this.pendingQrArrival;
+      this.pendingQrArrival = null;
+      this.processingScan.set(true);
+      this.tableArrival.handleTableQrArrival(arrival).subscribe({
+        complete: () => this.processingScan.set(false),
+        error: () => {
+          this.processingScan.set(false);
+          this.beginScanning();
+        },
+      });
+      return;
+    }
+    if (!this.pendingTableMove()) {
+      this.beginScanning();
     }
   }
 
@@ -527,85 +452,32 @@ export class ScanTablePage implements OnDestroy {
     );
   }
 
-  setMode(m: 'scan' | 'manual'): void {
-    this.mode.set(m);
-    this.errorMessage.set(null);
-    if (m === 'scan') {
-      this.requestCamera();
-    } else {
-      this.stopCamera();
+  private beginScanning(): void {
+    if (this.pendingTableMove()) return;
+    if (typeof window !== 'undefined' && !(window as Window & { BarcodeDetector?: unknown }).BarcodeDetector) {
+      this.errorMessage.set(
+        'QR scanning is not supported in this browser. Open the QR code with your phone camera instead.',
+      );
+      return;
     }
+    this.requestCamera();
   }
 
   requestCamera(): void {
+    this.errorMessage.set(null);
     if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ video: { facingMode: 'environment' } })
         .then((stream) => {
           this.cameraAllowed.set(true);
-          this.attachStream(stream);
-          this.startScanLoop();
+          this.attachStreamWhenReady(stream);
         })
         .catch(() => {
-          this.errorMessage.set('Camera access denied. Use manual entry.');
+          this.errorMessage.set('Camera access denied. Allow camera access to scan the table QR code.');
         });
     } else {
-      this.errorMessage.set('Camera not supported. Use manual entry.');
+      this.errorMessage.set('Camera not supported on this device. Open the QR code with your phone camera instead.');
     }
-  }
-
-  selectQuickTable(n: number): void {
-    this.selectedQuickTable.set(n);
-    this.form.patchValue({ tableNumber: String(n) });
-  }
-
-  /**
-   * If user has an active session at this table and has not paid, block and redirect to bill.
-   * Otherwise call onProceed. When blocked, whenBlocked is called (e.g. to reset processing state).
-   */
-  private checkSameTableUnpaidThenProceed(
-    tableId: string,
-    onProceed: () => void,
-    whenBlocked?: () => void,
-  ): void {
-    const session = this.sessionService.currentSessionSnapshot;
-    if (!session || session.tableId !== tableId) {
-      onProceed();
-      return;
-    }
-    this.sessionService.checkCanLeave(session).pipe(take(1)).subscribe({
-      next: (result) => {
-        if (!result.allowed) {
-          this.notifications.warn(
-            'You already have an active session at this table. Please pay your bill first.',
-          );
-          void this.router.navigate(['/customer/bill']);
-          whenBlocked?.();
-          return;
-        }
-        onProceed();
-      },
-      error: () => onProceed(),
-    });
-  }
-
-  private maybeMoveExistingSessionToNewTable(
-    targetTableId: string,
-    targetTableNumber: number,
-  ): boolean {
-    const current =
-      this.sessionService.currentSessionSnapshot ??
-      this.storage.get<{ id?: string; tableId?: string }>(SESSION_KEY);
-    if (!current?.id) return false;
-    const companyGuid =
-      this.route.snapshot.queryParamMap.get('c') ??
-      (this.sessionService.currentSessionSnapshot?.companyId ??
-        this.storage.get<{ companyId?: string }>(SESSION_KEY)?.companyId) ??
-      null;
-    if (!companyGuid) return false;
-    this.pendingTableMove.set({ tableId: targetTableId, tableNumber: targetTableNumber, companyGuid });
-    this.errorMessage.set(null);
-    return true;
   }
 
   confirmMoveToPendingTable(): void {
@@ -656,28 +528,35 @@ export class ScanTablePage implements OnDestroy {
     this.tableArrival.goToRegister(ctx);
   }
 
-  private attachStream(stream: MediaStream): void {
-    this.mediaStream = stream;
+  private attachStreamWhenReady(stream: MediaStream, attempt = 0): void {
     const video = this.videoElement?.nativeElement;
     if (!video) {
+      if (attempt < 60) {
+        requestAnimationFrame(() => this.attachStreamWhenReady(stream, attempt + 1));
+        return;
+      }
+      stream.getTracks().forEach((track) => track.stop());
+      this.errorMessage.set('Could not start the camera preview. Tap Allow Camera Access to try again.');
       return;
     }
+
+    this.mediaStream = stream;
     video.srcObject = stream;
     void video.play().catch(() => {
       // Ignore autoplay-related errors; user interaction will trigger play if needed.
     });
+    this.startScanLoop();
   }
 
   private startScanLoop(): void {
     if (typeof window === 'undefined') return;
-    const anyWindow = window as any;
-    const BarcodeDetectorCtor = anyWindow.BarcodeDetector as
-      | (new (opts: { formats: string[] }) => {
-          detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>>;
-        })
-      | undefined;
+    const anyWindow = window as Window & {
+      BarcodeDetector?: new (opts: { formats: string[] }) => {
+        detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>>;
+      };
+    };
+    const BarcodeDetectorCtor = anyWindow.BarcodeDetector;
     if (!BarcodeDetectorCtor) {
-      // Browser does not support BarcodeDetector; fall back to manual entry.
       return;
     }
     const video = this.videoElement?.nativeElement;
@@ -739,21 +618,27 @@ export class ScanTablePage implements OnDestroy {
         : { companyGuid: null, tableNumber: null, tableId: null };
       if (!companyGuid || !tableNumber) {
         this.processingScan.set(false);
-        this.errorMessage.set('QR code is not a valid table link. Use manual entry instead.');
-        this.mode.set('manual');
+        this.errorMessage.set('That is not a valid table QR code. Scan the code on your table stand.');
         this.handlingQr = false;
+        this.beginScanning();
         return;
       }
-      // QR already carries route context; navigate directly and let welcome/register resolve table and session flow.
-      void this.router.navigate(['/customer/welcome'], {
-        queryParams: {
-          c: companyGuid,
-          t: tableNumber,
-          ...(tableIdFromQr ? { tableId: tableIdFromQr } : {}),
+      const arrival: TableQrArrivalInput = {
+        companyGuid,
+        tableNumber,
+        tableId: tableIdFromQr,
+      };
+      this.tableArrival.handleTableQrArrival(arrival).subscribe({
+        complete: () => {
+          this.processingScan.set(false);
+          this.handlingQr = false;
         },
-        queryParamsHandling: '',
+        error: () => {
+          this.processingScan.set(false);
+          this.handlingQr = false;
+          this.beginScanning();
+        },
       });
-      this.handlingQr = false;
     });
   }
 
@@ -770,98 +655,6 @@ export class ScanTablePage implements OnDestroy {
     if (video) {
       video.srcObject = null;
     }
-  }
-
-  continue(): void {
-    this.errorMessage.set(null);
-    const tableNumber = this.form.value.tableNumber;
-    if (!tableNumber) return;
-
-    const companyGuid = this.resolveCompanyGuid();
-    if (!companyGuid) {
-      this.errorMessage.set(
-        'Restaurant not found. Scan the QR code at your table to link to the right venue.',
-      );
-      return;
-    }
-
-    const num = Number(tableNumber);
-    this.api.get<{ id: string; number: number }[]>('tables', { companyId: companyGuid }).subscribe({
-      next: (tables) => {
-        const list = Array.isArray(tables) ? tables : [];
-        const table = list.find((t) => t.number === num || Number(t.number) === num);
-        if (!table) {
-          this.errorMessage.set("We can't find that table. Please check the number or ask a waiter.");
-          return;
-        }
-        this.haptics.thumpShort();
-        this.checkSameTableUnpaidThenProceed(
-          table.id,
-          () => {
-            const arrivalCtx = {
-              companyGuid,
-              tableId: table.id,
-              tableNumber: String(table.number),
-            };
-            this.sessionService.getScanStatus(table.id, companyGuid).subscribe({
-              next: (status) => {
-                const session = this.sessionService.currentSessionSnapshot;
-                if (
-                  status.hasActiveSession &&
-                  status.sessionId &&
-                  session?.tableId === table.id &&
-                  session.id === status.sessionId
-                ) {
-                  void this.router.navigate(['/customer/menu']);
-                  return;
-                }
-
-                if (this.tableArrival.hasStoredProfile()) {
-                  this.tableArrival
-                    .beginWithStoredProfile(arrivalCtx, status)
-                    .subscribe({ error: () => undefined });
-                  return;
-                }
-
-                if (status.hasActiveSession && status.sessionId) {
-                  const sheetRef = this.bottomSheet.open(JoinTableSheetComponent, {
-                    data: {
-                      tableNumber: status.tableNumber ?? table.number,
-                      sessionId: status.sessionId,
-                      participants: status.participants ?? [],
-                    },
-                    panelClass: 'dc-join-table-sheet',
-                  });
-                  sheetRef.afterDismissed().subscribe((join) => {
-                    if (join === true) {
-                      this.tableArrival.goToRegister(arrivalCtx, status.sessionId);
-                    }
-                  });
-                  return;
-                }
-
-                if (this.maybeMoveExistingSessionToNewTable(table.id, table.number)) {
-                  return;
-                }
-                this.tableArrival.goToRegister(arrivalCtx);
-              },
-              error: () => {
-                if (this.tableArrival.hasStoredProfile()) {
-                  this.tableArrival
-                    .beginWithStoredProfile(arrivalCtx)
-                    .subscribe({ error: () => undefined });
-                  return;
-                }
-                this.tableArrival.goToRegister(arrivalCtx);
-              },
-            });
-          },
-        );
-      },
-      error: () => {
-        this.errorMessage.set("We can't find that table. Please check the number or ask a waiter.");
-      },
-    });
   }
 
   ngOnDestroy(): void {
