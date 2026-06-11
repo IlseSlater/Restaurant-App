@@ -7,21 +7,13 @@ import {
   signal,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MatBottomSheet } from '@angular/material/bottom-sheet';
-import { CustomerSession } from '../../../../core/models/customer-session.model';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../../../core/services/api.service';
 import { CustomerSessionService } from '../../services/customer-session.service';
 import { CustomerTableArrivalService } from '../../services/customer-table-arrival.service';
-import { NotificationService } from '../../../../core/services/notification.service';
-import { StorageService } from '../../../../core/services/storage.service';
-import { JoinTableSheetComponent } from '../../components/join-table-sheet/join-table-sheet.component';
 import { PressEffectDirective } from '../../../../shared/directives/press-effect.directive';
 import { Subscription } from 'rxjs';
-import { take } from 'rxjs';
-
-const SESSION_KEY = 'dark_culinary_customer_session';
 
 @Component({
   selector: 'app-customer-welcome',
@@ -35,7 +27,14 @@ const SESSION_KEY = 'dark_culinary_customer_session';
     PressEffectDirective,
   ],
   template: `
-    <div class="welcome" [class.welcome--session]="activeSession()">
+    <div class="welcome" [class.welcome--session]="activeSession()" [class.welcome--arriving]="arriving()">
+      @if (arriving()) {
+        <div class="welcome-loading" aria-live="polite" aria-busy="true">
+          <span class="spinner"></span>
+          <p>Setting up your table…</p>
+        </div>
+      }
+
       <div class="welcome-main">
         <section class="welcome-hero" aria-label="Welcome">
           <div class="welcome-icon-wrap">
@@ -119,6 +118,7 @@ const SESSION_KEY = 'dark_culinary_customer_session';
       }
       .welcome {
         --welcome-bottom-nav: 0px;
+        position: relative;
         min-height: 100dvh;
         height: 100dvh;
         max-height: 100dvh;
@@ -132,6 +132,34 @@ const SESSION_KEY = 'dark_culinary_customer_session';
         min-height: calc(100dvh - var(--welcome-bottom-nav));
         height: calc(100dvh - var(--welcome-bottom-nav));
         max-height: calc(100dvh - var(--welcome-bottom-nav));
+      }
+      .welcome--arriving {
+        pointer-events: none;
+      }
+      .welcome-loading {
+        position: fixed;
+        inset: 0;
+        z-index: var(--z-overlay, 1000);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        background: var(--overlay-bg, rgba(0, 0, 0, 0.55));
+        backdrop-filter: blur(8px);
+        color: var(--text-primary);
+        font-size: 0.95rem;
+      }
+      .spinner {
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 3px solid var(--border-subtle);
+        border-top-color: var(--accent-primary);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
       }
       .welcome-main {
         flex: 1 1 auto;
@@ -291,19 +319,16 @@ export class WelcomePage implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(ApiService);
-  private readonly bottomSheet = inject(MatBottomSheet);
   private readonly sessionService = inject(CustomerSessionService);
   private readonly tableArrival = inject(CustomerTableArrivalService);
-  private readonly notifications = inject(NotificationService);
-  private readonly storage = inject(StorageService);
   private sessionSub?: Subscription;
+  private tableArrivalSub?: Subscription;
 
   companyName = signal<string>('');
   companyLogo = signal<string | null>(null);
-  /** Current session in storage (so we show "previous session" card when they land on welcome). */
   readonly activeSession = signal(this.sessionService.currentSessionSnapshot);
-  /** Table label for active session (e.g. "Table 5") from session-with-bill. */
   readonly activeSessionTableLabel = signal<string | null>(null);
+  readonly arriving = signal(false);
 
   ngOnInit(): void {
     this.sessionSub = this.sessionService.currentSession$.subscribe((s) => {
@@ -331,182 +356,43 @@ export class WelcomePage implements OnInit, OnDestroy {
       }
     });
 
-    const c = this.route.snapshot.queryParamMap.get('c');
-    const t = this.route.snapshot.queryParamMap.get('t');
+    this.tableArrivalSub = this.route.queryParamMap.subscribe((params) => {
+      const c = params.get('c');
+      const t = params.get('t');
 
-    if (c && t && !this.sessionService.consumeSkipTableArrival()) {
-      this.startTableArrivalFlow(c, t);
-    } else if (c) {
-      this.loadCompanyBranding(c);
-    }
+      if (c && t) {
+        if (this.sessionService.consumeSkipTableArrival()) {
+          this.stripTableQueryParams();
+          return;
+        }
+        this.runTableArrival(c, t, params.get('tableId'));
+      } else if (c) {
+        this.loadCompanyBranding(c);
+      }
+    });
+  }
+
+  private runTableArrival(companyGuid: string, tableNumber: string, tableId: string | null): void {
+    this.arriving.set(true);
+    this.stripTableQueryParams();
+
+    this.tableArrival
+      .handleTableQrArrival({ companyGuid, tableNumber, tableId })
+      .subscribe({
+        complete: () => this.arriving.set(false),
+        error: () => this.arriving.set(false),
+      });
   }
 
   private loadCompanyBranding(companyId: string): void {
     this.api.get<{ name?: string; logo?: string | null }>(`companies/${companyId}`).subscribe({
-      next: (company) => this.applyCompanyBranding(company),
-      error: () => this.applyCompanyBranding(null),
-    });
-  }
-
-  private applyCompanyBranding(
-    company: { name?: string; logo?: string | null } | null,
-    fallbackName?: string,
-  ): void {
-    const name = company?.name ?? fallbackName ?? '';
-    this.companyName.set(name);
-    this.companyLogo.set(company?.logo ?? null);
-  }
-
-  private proceedToScanStatus(tableId: string, companyGuid: string, tableNumber: string): void {
-    const current =
-      this.sessionService.currentSessionSnapshot ??
-      this.storage.get<{ id?: string; tableId?: string }>(SESSION_KEY);
-    if (current?.id && current.tableId && current.tableId !== tableId) {
-      void this.router.navigate(['/customer/scan-table'], {
-        queryParams: {
-          c: companyGuid,
-          mode: 'scan',
-          moveTableId: tableId,
-          moveTableNumber: String(tableNumber),
-        },
-        queryParamsHandling: '',
-      });
-      return;
-    }
-
-    const arrivalCtx = { companyGuid, tableId, tableNumber };
-
-    this.sessionService.getScanStatus(tableId, companyGuid).subscribe({
-      next: (status) => {
-        if (this.tableArrival.hasStoredProfile()) {
-          this.tableArrival.beginWithStoredProfile(arrivalCtx, status).subscribe({ error: () => undefined });
-          return;
-        }
-
-        if (status.hasActiveSession && status.sessionId) {
-          const joinRef = this.bottomSheet.open(JoinTableSheetComponent, {
-            data: {
-              tableNumber: status.tableNumber ?? tableNumber,
-              sessionId: status.sessionId,
-              participants: status.participants ?? [],
-            },
-            panelClass: 'dc-join-table-sheet',
-          });
-          joinRef.afterDismissed().subscribe((join) => {
-            if (join === true) {
-              this.tableArrival.goToRegister(arrivalCtx, status.sessionId);
-            } else {
-              void this.router.navigate(['/customer/scan-table']);
-            }
-          });
-          return;
-        }
-
-        const current =
-          this.sessionService.currentSessionSnapshot ??
-          this.storage.get<{ id?: string; tableId?: string }>(SESSION_KEY);
-        const parsedTableNumber = Number(status.tableNumber ?? tableNumber);
-        const targetTableLabel = Number.isFinite(parsedTableNumber) ? parsedTableNumber : tableNumber;
-        if (current?.id) {
-          void this.router.navigate(['/customer/scan-table'], {
-            queryParams: {
-              c: companyGuid,
-              mode: 'scan',
-              moveTableId: tableId,
-              moveTableNumber: String(targetTableLabel),
-            },
-            queryParamsHandling: '',
-          });
-          return;
-        }
-
-        this.tableArrival.goToRegister(arrivalCtx);
+      next: (company) => {
+        this.companyName.set(company?.name ?? '');
+        this.companyLogo.set(company?.logo ?? null);
       },
       error: () => {
-        if (this.tableArrival.hasStoredProfile()) {
-          this.tableArrival.beginWithStoredProfile(arrivalCtx).subscribe({ error: () => undefined });
-          return;
-        }
-        this.tableArrival.goToRegister(arrivalCtx);
-      },
-    });
-  }
-
-  /** QR deep-link: skip confirmation sheet; start fresh unless an unpaid session blocks. */
-  private startTableArrivalFlow(companyGuid: string, tableNumber: string): void {
-    const tableIdFromQuery = this.route.snapshot.queryParamMap.get('tableId');
-    const session = this.sessionService.currentSessionSnapshot;
-
-    const runFlow = (tableId?: string) => {
-      this.stripTableQueryParams();
-      if (tableId) {
-        this.proceedToScanStatus(tableId, companyGuid, tableNumber);
-        return;
-      }
-      this.resolveTableIdAndProceed(companyGuid, tableNumber);
-    };
-
-    if (!session?.id) {
-      runFlow(tableIdFromQuery ?? undefined);
-      return;
-    }
-
-    if (tableIdFromQuery && session.tableId === tableIdFromQuery) {
-      this.clearSessionIfPaidThen(session, () => runFlow(tableIdFromQuery));
-      return;
-    }
-
-    runFlow(tableIdFromQuery ?? undefined);
-  }
-
-  private clearSessionIfPaidThen(session: CustomerSession, then: () => void): void {
-    this.sessionService.checkCanLeave(session).pipe(take(1)).subscribe({
-      next: (leaveResult) => {
-        if (!leaveResult.allowed) {
-          this.notifications.warn('Please pay your bill before starting a new visit.');
-          void this.router.navigate(['/customer/bill']);
-          return;
-        }
-        this.sessionService.clearLocalSession(session.id);
-        then();
-      },
-      error: () => {
-        this.sessionService.clearLocalSession(session.id);
-        then();
-      },
-    });
-  }
-
-  private resolveTableIdAndProceed(companyGuid: string, tableNumber: string): void {
-    this.api.get<{ id: string; number: number }[]>(`tables`, { companyId: companyGuid }).subscribe({
-      next: (tables) => {
-        const list = Array.isArray(tables) ? tables : [];
-        const table = list.find(
-          (tb) => String(tb.number) === tableNumber || tb.id === tableNumber,
-        );
-        if (!table?.id) {
-          if (this.tableArrival.hasStoredProfile()) {
-            this.notifications.warn('Table not found. Please scan the QR code at your table.');
-          } else {
-            this.tableArrival.goToRegister({ companyGuid, tableId: '', tableNumber });
-          }
-          return;
-        }
-        const session = this.sessionService.currentSessionSnapshot;
-        if (session?.tableId === table.id && session.id) {
-          this.clearSessionIfPaidThen(session, () =>
-            this.proceedToScanStatus(table.id, companyGuid, tableNumber),
-          );
-          return;
-        }
-        this.proceedToScanStatus(table.id, companyGuid, tableNumber);
-      },
-      error: () => {
-        if (!this.tableArrival.hasStoredProfile()) {
-          this.tableArrival.goToRegister({ companyGuid, tableId: '', tableNumber });
-        } else {
-          this.notifications.error('Could not load table information. Please try again.');
-        }
+        this.companyName.set('');
+        this.companyLogo.set(null);
       },
     });
   }
@@ -526,10 +412,7 @@ export class WelcomePage implements OnInit, OnDestroy {
       this.sessionService.currentSessionSnapshot?.companyId ??
       null;
     void this.router.navigate(['/customer/scan-table'], {
-      queryParams: {
-        mode: 'scan',
-        ...(companyId ? { c: companyId } : {}),
-      },
+      queryParams: companyId ? { c: companyId } : {},
     });
   }
 
@@ -539,5 +422,6 @@ export class WelcomePage implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.sessionSub?.unsubscribe();
+    this.tableArrivalSub?.unsubscribe();
   }
 }

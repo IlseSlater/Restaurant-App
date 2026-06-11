@@ -29,16 +29,33 @@ export class CustomerSessionsService {
     companyId?: string;
     scanLocation?: { lat: number; lng: number };
   }) {
+    const companyId = data.companyId?.trim();
+    if (!companyId) {
+      throw new ConflictException('companyId is required to create a customer session');
+    }
+
+    const table = await this.prisma.table.findFirst({
+      where: { id: data.tableId, companyId },
+      select: { id: true, number: true },
+    });
+    if (!table) {
+      throw new NotFoundException(
+        'Table not found. Please scan the QR code at your table again.',
+      );
+    }
+
     const normalizedData = {
       ...data,
+      tableId: table.id,
+      companyId,
       phoneNumber: data.phoneNumber ? this.normalizePhoneNumber(data.phoneNumber) : undefined,
       allergies: this.normalizeAllergies(data.allergies),
     };
 
     let expectedLocation: object | null = null;
-    if (data.companyId) {
+    if (companyId) {
       const company = await this.prisma.company.findUnique({
-        where: { id: data.companyId },
+        where: { id: companyId },
       });
       if (company && company.latitude && company.longitude) {
         expectedLocation = {
@@ -60,10 +77,6 @@ export class CustomerSessionsService {
             );
           }
 
-          const companyId = normalizedData.companyId ?? data.companyId;
-          if (!companyId) {
-            throw new Error('companyId is required to create a customer session');
-          }
           const session = await tx.customerSession.create({
             data: {
               tableId: normalizedData.tableId,
@@ -98,11 +111,18 @@ export class CustomerSessionsService {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (err: unknown) {
-      if (err instanceof ConflictException) throw err;
-      if (err && typeof err === 'object' && 'code' in err && err.code === 'P2034') {
-        throw new ConflictException(
-          'Table already has an active session. Join instead?',
-        );
+      if (err instanceof ConflictException || err instanceof NotFoundException) throw err;
+      if (err && typeof err === 'object' && 'code' in err) {
+        if (err.code === 'P2034') {
+          throw new ConflictException(
+            'Table already has an active session. Join instead?',
+          );
+        }
+        if (err.code === 'P2003') {
+          throw new NotFoundException(
+            'Table not found. Please scan the QR code at your table again.',
+          );
+        }
       }
       throw err;
     }
